@@ -2,6 +2,14 @@
 
 All notable changes to CaddyWeb are documented here.
 
+## 0.2.1 — 2026-11-14
+
+### Fixed
+
+- Send an `Origin` header with every Caddy Admin API request so the panel works
+  when the admin endpoint enables `enforce_origin`. Defaults to
+  `http://127.0.0.1:2019` and can be overridden with `CADDY_ADMIN_ORIGIN`.
+
 ## 0.2.0 — 2026-11-14
 
 ### Added

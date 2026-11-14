@@ -142,6 +142,7 @@ subdomain you create through the panel.
 | `CADDY_ADMIN_URL` | `http://localhost:2019` | Admin API base URL, server-side only |
 | `CADDY_ADMIN_USER` | – | Optional basic-auth user for a proxied admin endpoint |
 | `CADDY_ADMIN_PASSWORD` | – | Optional basic-auth password |
+| `CADDY_ADMIN_ORIGIN` | `http://127.0.0.1:2019` | `Origin` header sent to the Admin API (for `enforce_origin`) |
 | `CADDY_HTTP_PORT` | `80` | Port used when CaddyWeb creates a Caddy server |
 | `CADDY_HTTPS_PORT` | `443` | TLS port used when CaddyWeb creates a Caddy server |
 | `APP_USERNAME` | `admin` | Login username |
@@ -216,13 +217,13 @@ CADDYWEB_PORT=28080 docker compose up -d
 Published image:
 
 ```bash
-docker pull docker-registry.evoxy.de/caddyweb:0.2.0
+docker pull docker-registry.evoxy.de/caddyweb:0.2.1
 docker run -d --name caddyweb -p 18080:18080 \
   -e APP_USERNAME=admin \
   -e APP_PASSWORD='pick-a-strong-password' \
   -e AUTH_SECRET="$(openssl rand -hex 32)" \
   -e CADDY_ADMIN_URL='http://<caddy-host>:2019' \
-  docker-registry.evoxy.de/caddyweb:0.2.0
+  docker-registry.evoxy.de/caddyweb:0.2.1
 ```
 
 Caddy's admin endpoint is bound inside the compose network only and is **not**
@@ -256,7 +257,7 @@ the server.
 | Login page says **Panel locked** | Set `APP_PASSWORD` (and `APP_USERNAME`) in the container environment, then restart or recreate the container |
 | Port 18080 already in use | Publish another host port: `-p 28080:18080`, or set `CADDYWEB_PORT=28080` for Compose |
 | Dashboard says **Caddy offline** | Start Caddy, verify `CADDY_ADMIN_URL`, and make sure the admin endpoint is not bound to a different address |
-| `HTTP 403` from the admin API | The endpoint enforces origins. Call it from the panel server, or configure `admin { origins ... }` in Caddy |
+| `HTTP 403` from the admin API | The endpoint enforces origins. Set `CADDY_ADMIN_ORIGIN` to an allowed origin (default `http://127.0.0.1:2019`), or configure `admin { origins ... }` in Caddy |
 | `permission denied` when binding 443 | Run Caddy with the required capabilities, or set `CADDY_HTTPS_PORT=8443` |
 | Certificate not issued | Check DNS, ports 80/443, and Caddy's logs. Use Internal CA for names that are not publicly resolvable |
 | Duplicate host error | Another route already matches that hostname. Edit or remove it first |

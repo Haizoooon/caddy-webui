@@ -22,7 +22,11 @@ export function publicAdminUrl(): string {
 }
 
 function adminHeaders(extra: Record<string, string> = {}): Record<string, string> {
-  const headers: Record<string, string> = { ...extra };
+  const headers: Record<string, string> = {
+    Origin: process.env.CADDY_ADMIN_ORIGIN || "http://127.0.0.1:2019",
+    ...extra,
+  };
+
   const user = process.env.CADDY_ADMIN_USER;
   const password = process.env.CADDY_ADMIN_PASSWORD;
 
