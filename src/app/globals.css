@@ -1,0 +1,90 @@
+@import "tailwindcss";
+
+@theme {
+  --color-canvas: #f4f8f9;
+  --color-surface: #ffffff;
+  --color-cloud: #ecf0f1;
+  --color-line: #dfe8ea;
+  --color-line-strong: #c7d3d6;
+  --color-ink: #2c3e50;
+  --color-ink-soft: #34495e;
+  --color-muted: #7f8c8d;
+  --color-primary: #1abc9c;
+  --color-primary-dark: #16a085;
+  --color-info: #3498db;
+  --color-info-dark: #2980b9;
+  --color-success: #2ecc71;
+  --color-success-dark: #27ae60;
+  --color-warning: #f1c40f;
+  --color-warning-dark: #f39c12;
+  --color-danger: #e74c3c;
+  --color-danger-dark: #c0392b;
+  --color-purple: #9b59b6;
+
+  --radius-flat: 3px;
+
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  --font-mono:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono",
+    monospace;
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+    scrollbar-gutter: stable;
+  }
+
+  body {
+    @apply bg-canvas text-ink antialiased;
+    font-family: var(--font-sans);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    letter-spacing: -0.01em;
+  }
+
+  ::selection {
+    background: rgba(26, 188, 156, 0.24);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  button:focus-visible {
+    outline: none;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #cfdadc;
+    border: 2px solid var(--color-canvas);
+    border-radius: 999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-line-strong);
+  }
+}
+
+@utility flat-ring {
+  @apply focus-visible:ring-2 focus-visible:ring-primary/25;
+}
