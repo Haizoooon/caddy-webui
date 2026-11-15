@@ -43,29 +43,26 @@ export default async function SettingsPage() {
   const httpsPort = process.env.CADDY_HTTPS_PORT || "443";
   const adminUrl = publicAdminUrl();
   const hasAdminAuth = Boolean(process.env.CADDY_ADMIN_USER);
-  const oauth = admin ? getOAuthSummary() : null;
-  const smtp = admin ? getSmtpSummary() : null;
-  const notifications = admin ? getNotificationSettings() : null;
-  const notificationRecipients =
-    admin && notifications
-      ? (() => {
-          try {
-            return notificationRecipientEmails(notifications);
-          } catch {
-            return [];
-          }
-        })()
-      : [];
-  const lastCheck = admin ? lastHealthCheck() : null;
-  const recentEmailLog = admin
-    ? (() => {
-        try {
-          return recentEmails(10);
-        } catch {
-          return [];
-        }
-      })()
-    : [];
+  const oauth = admin ? await getOAuthSummary() : null;
+  const smtp = admin ? await getSmtpSummary() : null;
+  const notifications = admin ? await getNotificationSettings() : null;
+  let notificationRecipients: string[] = [];
+  if (admin && notifications) {
+    try {
+      notificationRecipients = await notificationRecipientEmails(notifications);
+    } catch {
+      notificationRecipients = [];
+    }
+  }
+  const lastCheck = admin ? await lastHealthCheck() : null;
+  let recentEmailLog: Awaited<ReturnType<typeof recentEmails>> = [];
+  if (admin) {
+    try {
+      recentEmailLog = await recentEmails(10);
+    } catch {
+      recentEmailLog = [];
+    }
+  }
   const callbackBase = (process.env.APP_URL || "").trim().replace(/\/+$/, "");
   const oauthCallbackUrl = callbackBase
     ? `${callbackBase}/api/auth/oauth/callback`

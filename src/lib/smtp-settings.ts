@@ -106,9 +106,9 @@ function fromStored(stored: StoredSmtpSettings): SmtpSettings {
   };
 }
 
-export function getSmtpSettings(): SmtpSettings {
+export async function getSmtpSettings(): Promise<SmtpSettings> {
   try {
-    const raw = getSetting(SETTING_KEY);
+    const raw = await getSetting(SETTING_KEY);
     if (raw) return fromStored(JSON.parse(raw) as StoredSmtpSettings);
   } catch {
     // Fall back to environment configuration.
@@ -116,8 +116,10 @@ export function getSmtpSettings(): SmtpSettings {
   return envSettings();
 }
 
-export function saveSmtpSettings(input: SmtpSettingsInput): SmtpSummary {
-  const current = getSmtpSettings();
+export async function saveSmtpSettings(
+  input: SmtpSettingsInput,
+): Promise<SmtpSummary> {
+  const current = await getSmtpSettings();
   const password =
     input.password && input.password.trim() ? input.password : current.password;
 
@@ -134,7 +136,7 @@ export function saveSmtpSettings(input: SmtpSettingsInput): SmtpSummary {
     rejectUnauthorized: input.rejectUnauthorized,
   };
 
-  setSetting(SETTING_KEY, JSON.stringify(stored));
+  await setSetting(SETTING_KEY, JSON.stringify(stored));
   return summarizeSmtp(fromStored(stored));
 }
 
@@ -154,6 +156,6 @@ export function summarizeSmtp(settings: SmtpSettings): SmtpSummary {
   };
 }
 
-export function getSmtpSummary(): SmtpSummary {
-  return summarizeSmtp(getSmtpSettings());
+export async function getSmtpSummary(): Promise<SmtpSummary> {
+  return summarizeSmtp(await getSmtpSettings());
 }

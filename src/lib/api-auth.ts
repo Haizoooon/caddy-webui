@@ -20,7 +20,7 @@ export async function authorizeApiOrToken(
 
   if (bearer) {
     try {
-      const result = authenticateApiToken(bearer[1].trim());
+      const result = await authenticateApiToken(bearer[1].trim());
       if (!result) {
         return {
           response: NextResponse.json(

@@ -73,7 +73,7 @@ export async function GET() {
   if ("response" in auth) return auth.response;
 
   try {
-    return ok({ oauth: getOAuthSummary() });
+    return ok({ oauth: await getOAuthSummary() });
   } catch (error) {
     return errorResponse(error);
   }
@@ -115,7 +115,7 @@ export async function PUT(request: Request) {
   };
 
   try {
-    const summary = saveOAuthSettings(input);
+    const summary = await saveOAuthSettings(input);
     audit(
       auth.user.username,
       "oauth.update",

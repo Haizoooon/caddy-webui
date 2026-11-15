@@ -33,9 +33,9 @@ const defaults: NotificationSettings = {
   },
 };
 
-export function getNotificationSettings(): NotificationSettings {
+export async function getNotificationSettings(): Promise<NotificationSettings> {
   try {
-    const raw = getSetting(SETTING_KEY);
+    const raw = await getSetting(SETTING_KEY);
     if (!raw) return { ...defaults, events: { ...defaults.events } };
 
     const parsed = JSON.parse(raw) as Partial<NotificationSettings>;
@@ -69,9 +69,9 @@ export function getNotificationSettings(): NotificationSettings {
   }
 }
 
-export function saveNotificationSettings(
+export async function saveNotificationSettings(
   settings: NotificationSettings,
-): NotificationSettings {
+): Promise<NotificationSettings> {
   const normalized: NotificationSettings = {
     enabled: settings.enabled,
     intervalMinutes: Math.min(1440, Math.max(1, Math.floor(settings.intervalMinutes))),
@@ -92,14 +92,16 @@ export function saveNotificationSettings(
   };
 
   if (normalized.roles.length === 0) normalized.roles = ["admin"];
-  setSetting(SETTING_KEY, JSON.stringify(normalized));
+  await setSetting(SETTING_KEY, JSON.stringify(normalized));
   return normalized;
 }
 
-export function notificationRecipientEmails(
+export async function notificationRecipientEmails(
   settings: NotificationSettings,
-): string[] {
-  const fromUsers = getNotificationRecipients(settings.roles).map((user) => user.email);
+): Promise<string[]> {
+  const fromUsers = (await getNotificationRecipients(settings.roles)).map(
+    (user) => user.email,
+  );
   return Array.from(
     new Set(
       [...fromUsers, ...settings.extraRecipients]
@@ -113,9 +115,9 @@ export function notificationRoleOptions(): Role[] {
   return [...roles];
 }
 
-export function lastHealthCheck(): string | null {
+export async function lastHealthCheck(): Promise<string | null> {
   try {
-    return getSetting("monitor:lastCheck");
+    return await getSetting("monitor:lastCheck");
   } catch {
     return null;
   }

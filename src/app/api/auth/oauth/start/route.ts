@@ -23,7 +23,7 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL("/login", oauthBaseUrl(request)));
   }
 
-  const config = oidcConfig();
+  const config = await oidcConfig();
 
   if (!config) {
     return NextResponse.redirect(

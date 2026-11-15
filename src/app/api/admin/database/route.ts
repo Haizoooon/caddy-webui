@@ -10,7 +10,7 @@ export async function GET() {
   if ("response" in auth) return auth.response;
 
   try {
-    return ok({ database: databaseStatus() });
+    return ok({ database: await databaseStatus() });
   } catch (error) {
     if (error instanceof DatabaseError) {
       return fail("The database is unavailable.", 503);

@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { Database, Download, Users } from "lucide-react";
-import { databaseStatus } from "@/lib/db";
+import { Database, Settings2, Users } from "lucide-react";
+import { databaseStatus, type DatabaseStatus } from "@/lib/db";
 import {
   Badge,
   Card,
@@ -16,27 +16,51 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function DatabaseCard() {
-  const status = databaseStatus();
+export async function DatabaseCard() {
+  const status: DatabaseStatus = await databaseStatus();
 
   return (
     <Card className="mt-6">
       <CardHeader
         title="Database"
-        description="Embedded SQLite for users, roles, API tokens and OAuth settings."
+        description="MySQL / MariaDB stores users, roles, API tokens and all dashboard settings."
         action={
           <Badge tone={status.open ? "success" : "danger"}>
-            {status.open ? "Connected" : "Unavailable"}
+            {status.open ? "Connected" : status.configured ? "Unavailable" : "Not configured"}
           </Badge>
         }
       />
 
-      {status.open ? (
+      {!status.configured ? (
+        <div className="p-4">
+          <Notice tone="warning" title="Database setup required">
+            CaddyWeb needs a MySQL or MariaDB database. Run the setup wizard to connect
+            one and create the schema.
+          </Notice>
+          <Link href="/setup" className={`${buttonClass("primary", "md")} mt-3`}>
+            <Settings2 className="h-4 w-4" aria-hidden />
+            Open setup wizard
+          </Link>
+        </div>
+      ) : status.open ? (
         <>
           <dl className="px-4 py-2">
-            <KeyValue label="Engine">SQLite (embedded)</KeyValue>
-            <KeyValue label="File">
-              <code className="font-mono text-xs break-all">{status.path}</code>
+            <KeyValue label="Engine">MySQL / MariaDB</KeyValue>
+            <KeyValue label="Version">{status.version || "—"}</KeyValue>
+            <KeyValue label="Host">
+              <code className="font-mono text-xs">
+                {status.host}:{status.port}
+              </code>
+            </KeyValue>
+            <KeyValue label="Database">
+              <code className="font-mono text-xs">{status.database}</code>
+            </KeyValue>
+            <KeyValue label="User">
+              <code className="font-mono text-xs">{status.user}</code>
+            </KeyValue>
+            <KeyValue label="TLS">{status.ssl ? "Enabled" : "Disabled"}</KeyValue>
+            <KeyValue label="Source">
+              {status.source === "env" ? "Environment" : "Setup wizard"}
             </KeyValue>
             <KeyValue label="Size">{formatBytes(status.sizeBytes)}</KeyValue>
             <KeyValue label="Users">
@@ -50,33 +74,42 @@ export function DatabaseCard() {
               <Users className="h-3.5 w-3.5" aria-hidden />
               Manage users
             </Link>
-            <a
-              href="/api/admin/database/backup"
-              className={buttonClass("ghost", "sm")}
-            >
-              <Download className="h-3.5 w-3.5" aria-hidden />
-              Download backup
-            </a>
+            {status.source === "file" ? (
+              <Link href="/setup?edit=1" className={buttonClass("ghost", "sm")}>
+                <Settings2 className="h-3.5 w-3.5" aria-hidden />
+                Change connection
+              </Link>
+            ) : null}
           </div>
           <div className="border-t border-line px-4 py-3">
             <p className="flex items-start gap-2 text-xs leading-relaxed text-muted">
               <Database className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-              The database lives in <code className="font-mono">CADDYWEB_DATA_DIR</code>{" "}
-              (default <code className="font-mono">/app/data</code> in Docker). Mount that
-              directory as a volume to keep users and settings across container restarts.
+              The connection is stored in <code className="font-mono">database.json</code>{" "}
+              under <code className="font-mono">CADDYWEB_CONFIG_DIR</code>. The password is
+              encrypted with <code className="font-mono">AUTH_SECRET</code>. Environment
+              variables override the file.
             </p>
           </div>
         </>
       ) : (
         <div className="p-4">
           <Notice tone="danger" title="Database unavailable">
-            {status.error ??
-              "The embedded SQLite database could not be opened. Environment password login still works."}
+            {status.error ?? "The configured database could not be reached."}
           </Notice>
           <p className="mt-3 text-xs leading-relaxed text-muted">
-            File: <code className="font-mono">{status.path}</code>. Check that the data
-            directory is writable and mounted.
+            Check that MySQL/MariaDB is running, the credentials are correct and remote
+            connections are allowed. The environment admin can still sign in while the
+            database is down.
           </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Link href="/setup?edit=1" className={buttonClass("primary", "sm")}>
+              <Settings2 className="h-3.5 w-3.5" aria-hidden />
+              Fix connection
+            </Link>
+            <Link href="/setup" className={buttonClass("outline", "sm")}>
+              Setup wizard
+            </Link>
+          </div>
         </div>
       )}
     </Card>

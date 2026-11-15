@@ -1,8 +1,14 @@
-import fs from "node:fs";
-import path from "node:path";
-import { DatabaseSync } from "node:sqlite";
 import bcrypt from "bcryptjs";
+import mysql, { type Pool } from "mysql2/promise";
 import { appUsername } from "./session";
+import {
+  connectionOptions,
+  dbConfigSource,
+  getDbConfigSummary,
+  loadDbConfig,
+  type DbConfig,
+  type DbConfigSource,
+} from "./db-config";
 
 export class DatabaseError extends Error {
   constructor(message: string) {
@@ -11,199 +17,248 @@ export class DatabaseError extends Error {
   }
 }
 
-interface DatabaseState {
-  db: DatabaseSync;
-  path: string;
-}
-
-let state: DatabaseState | null = null;
-
-export function dataDirectory(): string {
-  return process.env.CADDYWEB_DATA_DIR?.trim() || path.join(process.cwd(), "data");
-}
-
-export function databasePath(): string {
-  return (
-    process.env.CADDYWEB_DB_PATH?.trim() ||
-    path.join(dataDirectory(), "caddyweb.db")
-  );
-}
-
-function ensureColumn(
-  db: DatabaseSync,
-  table: string,
-  column: string,
-  definition: string,
-): void {
-  const columns = db
-    .prepare(`PRAGMA table_info(${table})`)
-    .all() as unknown as { name: string }[];
-
-  if (!columns.some((entry) => entry.name === column)) {
-    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+export class DatabaseNotConfiguredError extends DatabaseError {
+  constructor() {
+    super("No database is configured. Finish the setup wizard first.");
+    this.name = "DatabaseNotConfiguredError";
   }
 }
 
-function migrate(db: DatabaseSync): void {
-  db.exec(`
+let pool: Pool | null = null;
+let poolConfig: DbConfig | null = null;
+let initPromise: Promise<void> | null = null;
+
+async function ensureSchema(target: Pool): Promise<void> {
+  await target.query(`
     CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username TEXT NOT NULL UNIQUE COLLATE NOCASE,
-      name TEXT,
-      email TEXT COLLATE NOCASE,
-      password_hash TEXT,
-      role TEXT NOT NULL DEFAULT 'viewer' CHECK (role IN ('admin', 'editor', 'viewer')),
-      active INTEGER NOT NULL DEFAULT 1,
-      avatar TEXT,
-      email_notifications INTEGER NOT NULL DEFAULT 1,
-      oidc_subject TEXT,
-      oidc_issuer TEXT,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL,
-      last_login_at TEXT
-    );
-
-    CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique
-      ON users(email) WHERE email IS NOT NULL AND email != '';
-
-    CREATE TABLE IF NOT EXISTS api_tokens (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      name TEXT NOT NULL,
-      token_hash TEXT NOT NULL UNIQUE,
-      prefix TEXT NOT NULL,
-      created_at TEXT NOT NULL,
-      last_used_at TEXT,
-      expires_at TEXT,
-      revoked_at TEXT
-    );
-
-    CREATE TABLE IF NOT EXISTS settings (
-      key TEXT PRIMARY KEY,
-      value TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS audit_log (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      actor TEXT,
-      action TEXT NOT NULL,
-      target TEXT,
-      detail TEXT,
-      created_at TEXT NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS email_log (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      recipient TEXT NOT NULL,
-      subject TEXT NOT NULL,
-      status TEXT NOT NULL,
-      error TEXT,
-      created_at TEXT NOT NULL
-    );
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+      username VARCHAR(64) NOT NULL,
+      name VARCHAR(120) NULL,
+      email VARCHAR(254) NULL,
+      password_hash VARCHAR(255) NULL,
+      role ENUM('admin', 'editor', 'viewer') NOT NULL DEFAULT 'viewer',
+      active TINYINT(1) NOT NULL DEFAULT 1,
+      avatar MEDIUMTEXT NULL,
+      email_notifications TINYINT(1) NOT NULL DEFAULT 1,
+      oidc_subject VARCHAR(255) NULL,
+      oidc_issuer VARCHAR(500) NULL,
+      created_at VARCHAR(40) NOT NULL,
+      updated_at VARCHAR(40) NOT NULL,
+      last_login_at VARCHAR(40) NULL,
+      PRIMARY KEY (id),
+      UNIQUE KEY users_username_unique (username),
+      UNIQUE KEY users_email_unique (email),
+      KEY users_oidc (oidc_subject, oidc_issuer)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
 
-  // Migration from schema v1 (users without profile fields).
-  ensureColumn(db, "users", "name", "TEXT");
-  ensureColumn(db, "users", "avatar", "TEXT");
-  ensureColumn(db, "users", "email_notifications", "INTEGER NOT NULL DEFAULT 1");
+  await target.query(`
+    CREATE TABLE IF NOT EXISTS api_tokens (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+      user_id BIGINT UNSIGNED NOT NULL,
+      name VARCHAR(80) NOT NULL,
+      token_hash CHAR(64) CHARACTER SET ascii NOT NULL,
+      prefix VARCHAR(20) NOT NULL,
+      created_at VARCHAR(40) NOT NULL,
+      last_used_at VARCHAR(40) NULL,
+      expires_at VARCHAR(40) NULL,
+      revoked_at VARCHAR(40) NULL,
+      PRIMARY KEY (id),
+      UNIQUE KEY api_tokens_hash_unique (token_hash),
+      KEY api_tokens_user (user_id),
+      CONSTRAINT api_tokens_user_fk FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
 
-  db.exec("PRAGMA user_version = 2");
+  await target.query(`
+    CREATE TABLE IF NOT EXISTS settings (
+      setting_key VARCHAR(100) NOT NULL,
+      setting_value LONGTEXT NOT NULL,
+      updated_at VARCHAR(40) NOT NULL,
+      PRIMARY KEY (setting_key)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  await target.query(`
+    CREATE TABLE IF NOT EXISTS audit_log (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+      actor VARCHAR(190) NULL,
+      action VARCHAR(80) NOT NULL,
+      target VARCHAR(255) NULL,
+      detail TEXT NULL,
+      created_at VARCHAR(40) NOT NULL,
+      PRIMARY KEY (id),
+      KEY audit_log_created (created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  await target.query(`
+    CREATE TABLE IF NOT EXISTS email_log (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+      recipient VARCHAR(254) NOT NULL,
+      subject VARCHAR(300) NOT NULL,
+      status ENUM('sent', 'failed') NOT NULL,
+      error TEXT NULL,
+      created_at VARCHAR(40) NOT NULL,
+      PRIMARY KEY (id),
+      KEY email_log_created (created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  await target.query(
+    `INSERT INTO settings (setting_key, setting_value, updated_at)
+     VALUES ('schema_version', '1', ?)
+     ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value), updated_at = VALUES(updated_at)`,
+    [new Date().toISOString()],
+  );
+
+  await seedAdmin(target);
 }
 
-function seedAdmin(db: DatabaseSync): void {
+async function seedAdmin(target: Pool): Promise<void> {
   const password = process.env.APP_PASSWORD;
   if (!password) return;
 
-  const admins = db
-    .prepare("SELECT COUNT(*) AS count FROM users WHERE role = 'admin' AND active = 1")
-    .get() as { count: number };
-  if (admins.count > 0) return;
+  const [rows] = await target.execute(
+    "SELECT COUNT(*) AS count FROM users WHERE role = 'admin' AND active = 1",
+  );
+  const count = Number((rows as { count: number }[])[0]?.count ?? 0);
+  if (count > 0) return;
 
   const username = appUsername();
   const now = new Date().toISOString();
-  const hash = bcrypt.hashSync(password, 10);
-  const existing = db
-    .prepare("SELECT id FROM users WHERE username = ? COLLATE NOCASE")
-    .get(username) as { id: number } | undefined;
+  const hash = await bcrypt.hash(password, 10);
 
-  if (existing) {
-    db.prepare(
-      `UPDATE users SET password_hash = ?, role = 'admin', active = 1,
-       name = COALESCE(name, ?), updated_at = ? WHERE id = ?`,
-    ).run(hash, username, now, existing.id);
-  } else {
-    db.prepare(
-      `INSERT INTO users (username, name, email, password_hash, role, active, created_at, updated_at)
-       VALUES (?, ?, NULL, ?, 'admin', 1, ?, ?)`,
-    ).run(username, username, hash, now, now);
-  }
+  await target.execute(
+    `INSERT INTO users (username, name, email, password_hash, role, active, created_at, updated_at)
+     VALUES (?, ?, NULL, ?, 'admin', 1, ?, ?)
+     ON DUPLICATE KEY UPDATE password_hash = VALUES(password_hash), role = 'admin',
+       active = 1, name = COALESCE(name, VALUES(name)), updated_at = VALUES(updated_at)`,
+    [username, username, hash, now, now],
+  );
 }
 
-export function getDb(): DatabaseSync {
-  const target = databasePath();
+export async function getPool(): Promise<Pool> {
+  const config = loadDbConfig();
+  if (!config) throw new DatabaseNotConfiguredError();
 
-  if (state && state.path === target) return state.db;
+  const changed =
+    pool &&
+    poolConfig &&
+    (poolConfig.host !== config.host ||
+      poolConfig.port !== config.port ||
+      poolConfig.database !== config.database ||
+      poolConfig.user !== config.user ||
+      poolConfig.password !== config.password ||
+      poolConfig.ssl !== config.ssl);
+
+  if (changed) await resetPool();
+
+  if (!pool) {
+    pool = mysql.createPool({
+      ...connectionOptions(config),
+      waitForConnections: true,
+      connectionLimit: 10,
+      queueLimit: 0,
+      enableKeepAlive: true,
+    });
+    poolConfig = config;
+  }
+
+  if (!initPromise) {
+    initPromise = ensureSchema(pool).catch(async (error) => {
+      initPromise = null;
+      await resetPool();
+      throw new DatabaseError(
+        error instanceof Error ? error.message : "Could not initialize the database.",
+      );
+    });
+  }
+
+  await initPromise;
+  return pool;
+}
+
+export async function resetPool(): Promise<void> {
+  const current = pool;
+  pool = null;
+  poolConfig = null;
+  initPromise = null;
+  healthCache = null;
+  if (current) await current.end().catch(() => undefined);
+}
+
+let healthCache: { checkedAt: number; ok: boolean } | null = null;
+
+export async function dbHealthy(): Promise<boolean> {
+  if (!loadDbConfig()) return false;
+  if (healthCache && Date.now() - healthCache.checkedAt < 5000) {
+    return healthCache.ok;
+  }
 
   try {
-    fs.mkdirSync(path.dirname(target), { recursive: true });
-    const db = new DatabaseSync(target);
-    db.exec("PRAGMA journal_mode = WAL");
-    db.exec("PRAGMA foreign_keys = ON");
-    db.exec("PRAGMA busy_timeout = 5000");
-    db.exec("PRAGMA synchronous = NORMAL");
-    migrate(db);
-    seedAdmin(db);
-    state = { db, path: target };
-    return db;
-  } catch (error) {
-    throw new DatabaseError(
-      error instanceof Error ? error.message : "Could not open the database.",
-    );
+    const target = await getPool();
+    await target.query("SELECT 1");
+    healthCache = { checkedAt: Date.now(), ok: true };
+    return true;
+  } catch {
+    healthCache = { checkedAt: Date.now(), ok: false };
+    return false;
   }
 }
 
-export function getSetting(key: string): string | null {
-  const row = getDb()
-    .prepare("SELECT value FROM settings WHERE key = ?")
-    .get(key) as { value: string } | undefined;
-  return row?.value ?? null;
+export async function getSetting(key: string): Promise<string | null> {
+  const target = await getPool();
+  const [rows] = await target.execute(
+    "SELECT setting_value FROM settings WHERE setting_key = ? LIMIT 1",
+    [key],
+  );
+  const value = (rows as { setting_value: string }[])[0]?.setting_value;
+  return value ?? null;
 }
 
-export function setSetting(key: string, value: string): void {
-  const now = new Date().toISOString();
-  getDb()
-    .prepare(
-      `INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)
-       ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
-    )
-    .run(key, value, now);
+export async function setSetting(key: string, value: string): Promise<void> {
+  const target = await getPool();
+  await target.execute(
+    `INSERT INTO settings (setting_key, setting_value, updated_at)
+     VALUES (?, ?, ?)
+     ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value), updated_at = VALUES(updated_at)`,
+    [key, value, new Date().toISOString()],
+  );
 }
 
-export function deleteSetting(key: string): void {
-  getDb().prepare("DELETE FROM settings WHERE key = ?").run(key);
+export async function deleteSetting(key: string): Promise<void> {
+  const target = await getPool();
+  await target.execute("DELETE FROM settings WHERE setting_key = ?", [key]);
 }
 
-export function audit(
+export async function audit(
   actor: string | null,
   action: string,
-  target?: string,
+  targetName?: string,
   detail?: string,
-): void {
+): Promise<void> {
   try {
-    getDb()
-      .prepare(
-        "INSERT INTO audit_log (actor, action, target, detail, created_at) VALUES (?, ?, ?, ?, ?)",
-      )
-      .run(actor, action, target ?? null, detail ?? null, new Date().toISOString());
+    const target = await getPool();
+    await target.execute(
+      "INSERT INTO audit_log (actor, action, target, detail, created_at) VALUES (?, ?, ?, ?, ?)",
+      [actor, action, targetName ?? null, detail ?? null, new Date().toISOString()],
+    );
   } catch {
     // Auditing must never break the main operation.
   }
 }
 
 export interface DatabaseStatus {
+  configured: boolean;
   open: boolean;
-  path: string;
+  source: DbConfigSource;
+  host: string;
+  port: number;
+  database: string;
+  user: string;
+  ssl: boolean;
+  version: string;
   sizeBytes: number;
   users: number;
   activeUsers: number;
@@ -212,44 +267,78 @@ export interface DatabaseStatus {
   error?: string;
 }
 
-export function databaseStatus(): DatabaseStatus {
-  const target = databasePath();
+export async function databaseStatus(): Promise<DatabaseStatus> {
+  const config = getDbConfigSummary();
+
+  if (!config) {
+    return {
+      configured: false,
+      open: false,
+      source: "none",
+      host: "",
+      port: 3306,
+      database: "",
+      user: "",
+      ssl: false,
+      version: "",
+      sizeBytes: 0,
+      users: 0,
+      activeUsers: 0,
+      tokens: 0,
+      schemaVersion: 0,
+    };
+  }
 
   try {
-    const db = getDb();
-    const users = db.prepare("SELECT COUNT(*) AS count FROM users").get() as {
-      count: number;
-    };
-    const activeUsers = db
-      .prepare("SELECT COUNT(*) AS count FROM users WHERE active = 1")
-      .get() as { count: number };
-    const tokens = db
-      .prepare("SELECT COUNT(*) AS count FROM api_tokens WHERE revoked_at IS NULL")
-      .get() as { count: number };
-    const version = db.prepare("PRAGMA user_version").get() as {
-      user_version: number;
-    };
-
-    let size = 0;
-    try {
-      size = fs.statSync(target).size;
-    } catch {
-      size = 0;
-    }
+    const target = await getPool();
+    const [versionRows] = await target.query("SELECT VERSION() AS version");
+    const [userRows] = await target.execute(
+      "SELECT COUNT(*) AS count FROM users",
+    );
+    const [activeRows] = await target.execute(
+      "SELECT COUNT(*) AS count FROM users WHERE active = 1",
+    );
+    const [tokenRows] = await target.execute(
+      "SELECT COUNT(*) AS count FROM api_tokens WHERE revoked_at IS NULL",
+    );
+    const [schemaRows] = await target.execute(
+      "SELECT setting_value FROM settings WHERE setting_key = 'schema_version' LIMIT 1",
+    );
+    const [sizeRows] = await target.execute(
+      `SELECT COALESCE(SUM(data_length + index_length), 0) AS bytes
+       FROM information_schema.tables WHERE table_schema = ?`,
+      [config.database],
+    );
 
     return {
+      configured: true,
       open: true,
-      path: target,
-      sizeBytes: size,
-      users: users.count,
-      activeUsers: activeUsers.count,
-      tokens: tokens.count,
-      schemaVersion: version.user_version,
+      source: config.source,
+      host: config.host,
+      port: config.port,
+      database: config.database,
+      user: config.user,
+      ssl: config.ssl,
+      version: (versionRows as { version: string }[])[0]?.version ?? "",
+      sizeBytes: Number((sizeRows as { bytes: number }[])[0]?.bytes ?? 0),
+      users: Number((userRows as { count: number }[])[0]?.count ?? 0),
+      activeUsers: Number((activeRows as { count: number }[])[0]?.count ?? 0),
+      tokens: Number((tokenRows as { count: number }[])[0]?.count ?? 0),
+      schemaVersion: Number(
+        (schemaRows as { setting_value: string }[])[0]?.setting_value ?? 0,
+      ),
     };
   } catch (error) {
     return {
+      configured: true,
       open: false,
-      path: target,
+      source: dbConfigSource(),
+      host: config.host,
+      port: config.port,
+      database: config.database,
+      user: config.user,
+      ssl: config.ssl,
+      version: "",
       sizeBytes: 0,
       users: 0,
       activeUsers: 0,
@@ -258,13 +347,4 @@ export function databaseStatus(): DatabaseStatus {
       error: error instanceof Error ? error.message : "Database unavailable.",
     };
   }
-}
-
-export function backupDatabase(): { filename: string; data: Buffer } {
-  const db = getDb();
-  db.exec("PRAGMA wal_checkpoint(FULL)");
-  return {
-    filename: `caddyweb-backup-${new Date().toISOString().slice(0, 10)}.db`,
-    data: fs.readFileSync(databasePath()),
-  };
 }

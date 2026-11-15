@@ -41,12 +41,12 @@ export async function GET() {
   if ("response" in auth) return auth.response;
 
   try {
-    const settings = getNotificationSettings();
+    const settings = await getNotificationSettings();
     return ok({
       notifications: settings,
-      recipients: notificationRecipientEmails(settings),
-      lastCheck: lastHealthCheck(),
-      emails: recentEmails(10),
+      recipients: await notificationRecipientEmails(settings),
+      lastCheck: await lastHealthCheck(),
+      emails: await recentEmails(10),
     });
   } catch (error) {
     return errorResponse(error);
@@ -74,7 +74,7 @@ export async function PUT(request: Request) {
   }
 
   try {
-    const settings = saveNotificationSettings(parsed.data as NotificationSettings);
+    const settings = await saveNotificationSettings(parsed.data as NotificationSettings);
     audit(
       auth.user.username,
       "notifications.update",

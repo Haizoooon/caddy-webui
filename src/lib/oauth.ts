@@ -49,9 +49,9 @@ export interface OidcIdentity {
   groups: string[];
 }
 
-export function oidcConfig(): OidcConfig | null {
+export async function oidcConfig(): Promise<OidcConfig | null> {
   try {
-    const settings = getOAuthSettings();
+    const settings = await getOAuthSettings();
     if (!settings.enabled || !settings.issuer || !settings.clientId) return null;
 
     return {
@@ -70,37 +70,37 @@ export function oidcConfig(): OidcConfig | null {
   }
 }
 
-export function isOAuthConfigured(): boolean {
-  return oidcConfig() !== null;
+export async function isOAuthConfigured(): Promise<boolean> {
+  return (await oidcConfig()) !== null;
 }
 
-export function oidcProviderName(): string {
+export async function oidcProviderName(): Promise<string> {
   try {
-    return getOAuthSettings().providerName || "SSO";
+    return (await getOAuthSettings()).providerName || "SSO";
   } catch {
     return "SSO";
   }
 }
 
-export function oidcIssuer(): string {
+export async function oidcIssuer(): Promise<string> {
   try {
-    return getOAuthSettings().issuer;
+    return (await getOAuthSettings()).issuer;
   } catch {
     return "";
   }
 }
 
-export function oauthAllowedUsers(): string[] {
+export async function oauthAllowedUsers(): Promise<string[]> {
   try {
-    return getOAuthSettings().allowedUsers;
+    return (await getOAuthSettings()).allowedUsers;
   } catch {
     return [];
   }
 }
 
-export function oauthAllowedGroups(): string[] {
+export async function oauthAllowedGroups(): Promise<string[]> {
   try {
-    return getOAuthSettings().allowedGroups;
+    return (await getOAuthSettings()).allowedGroups;
   } catch {
     return [];
   }

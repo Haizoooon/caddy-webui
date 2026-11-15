@@ -57,7 +57,7 @@ export async function GET(request: Request) {
     return loginError(request, "oauth_denied");
   }
 
-  const config = oidcConfig();
+  const config = await oidcConfig();
   if (!config) return loginError(request, "oauth_config");
 
   const code = url.searchParams.get("code") ?? "";
@@ -89,8 +89,8 @@ export async function GET(request: Request) {
 
     assertOAuthAccess(identity, config);
 
-    const settings = getOAuthSettings();
-    const user = upsertOidcUser(
+    const settings = await getOAuthSettings();
+    const user = await upsertOidcUser(
       identity,
       discovery.issuer,
       settings.defaultRole,

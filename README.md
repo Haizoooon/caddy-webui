@@ -25,7 +25,7 @@ pages without writing JSON or a Caddyfile.
 | Profile | Display name, avatar, email, password and email-notification opt-in |
 | Email alerts | SMTP settings plus background monitoring for Caddy and upstream health |
 | API | Bearer-token `POST /api/v1/subdomains` endpoint for automation |
-| Database | Embedded SQLite for users, tokens and OAuth settings, with backup download |
+| Database | MySQL / MariaDB with a first-run setup wizard and encrypted connection file |
 | Preferences | Light / dark / system theme, table density, new-site defaults, stored in a cookie |
 | Sites | List, search, create, edit and delete every route Caddy serves |
 | Reverse proxy | One or more `host:port` upstreams, automatic WebSocket support |
@@ -48,7 +48,9 @@ no shadows or gradients, with palettes for light and dark mode:
 
 ## Requirements
 
-- Node.js **24 or newer** (the embedded database uses `node:sqlite`)
+- Node.js **24 or newer** (matches the Docker image and CI)
+- MySQL 8.0+ or MariaDB 10.5+, reachable from the panel
+- A database and user with schema-creation privileges (`CREATE`, `ALTER`, `INDEX`)
 - A running Caddy 2 instance whose admin endpoint the app can reach
 - DNS records for the hostnames you create (a wildcard `*.example.com` is easiest)
 
@@ -80,6 +82,10 @@ npm run dev
 
 Open <http://localhost:3000>. Sign in with `APP_USERNAME` and `APP_PASSWORD`.
 
+If no database connection is configured, CaddyWeb redirects to `/setup` after
+login. Enter your MySQL/MariaDB host, database, user and password there; the
+schema is created automatically.
+
 The panel **fails closed**: if `APP_PASSWORD` is unset, the login page shows
 setup instructions and every page and API route stays locked. There is no
 unauthenticated mode.
@@ -93,21 +99,68 @@ npm start
 
 ---
 
+## Database setup (MySQL / MariaDB)
+
+CaddyWeb uses an external MySQL or MariaDB database. SQLite is no longer
+supported.
+
+### First run / setup wizard
+
+1. Start CaddyWeb with `APP_PASSWORD` and `AUTH_SECRET` set, but no `DB_*` or
+   `DATABASE_URL` variables.
+2. Sign in with the environment admin (`APP_USERNAME` / `APP_PASSWORD`).
+3. You are redirected to `/setup`. Enter:
+   - host and port (usually `3306`)
+   - database name
+   - database user and password
+   - TLS mode (disabled, required, or required with self-signed certificates)
+4. **Test connection**, then **Save & create schema**.
+
+CaddyWeb creates `users`, `api_tokens`, `settings`, `audit_log` and
+`email_log`, seeds the environment admin, and writes `database.json` in
+`CADDYWEB_CONFIG_DIR` (mode `0600`). The password is encrypted with
+`AUTH_SECRET`.
+
+The database user needs permission to create tables. Existing empty tables with
+the same names are reused; data is not copied from SQLite.
+
+### Environment configuration
+
+Alternatively, configure the connection with variables. They take precedence
+over the setup wizard and make `/setup` read-only:
+
+```dotenv
+DATABASE_URL=mysql://caddyweb:password@mysql:3306/caddyweb
+# or
+DB_HOST=mysql
+DB_PORT=3306
+DB_NAME=caddyweb
+DB_USER=caddyweb
+DB_PASSWORD=password
+DB_SSL=false
+DB_SSL_REJECT_UNAUTHORIZED=true
+```
+
+### Change the connection later
+
+Admins can open **Settings → Database → Change connection** (`/setup?edit=1`).
+Saving a different connection points CaddyWeb at another database; existing
+data is not migrated automatically.
+
 ## Accounts, roles and the database
 
-Users live in an embedded SQLite database (`CADDYWEB_DATA_DIR`, default
-`./data`; `/app/data` in Docker). On first start CaddyWeb seeds an Admin account
-from `APP_USERNAME` / `APP_PASSWORD`.
+Users live in MySQL/MariaDB. On setup CaddyWeb seeds an Admin account from
+`APP_USERNAME` / `APP_PASSWORD`. The environment admin also remains a
+break-glass login.
 
 | Role | Capabilities |
 | --- | --- |
-| Admin | Everything: sites, raw config, users, API tokens, OAuth and database |
+| Admin | Everything: sites, raw config, users, API tokens, OAuth, SMTP and database |
 | Editor | Create, edit and delete sites; adapt Caddyfiles; read dashboard/upstreams/TLS |
 | Viewer | Read-only access to routes, upstreams and TLS |
 
-The environment admin remains a break-glass login. Manage accounts, roles and
-API tokens under **Users** in the sidebar. Settings → Database shows the file,
-size, schema version and a backup download.
+Manage accounts and API tokens under **Users**. Settings → Database shows the
+engine, host, database, user, size, schema version and counts.
 
 OAuth users are provisioned on first login with a configurable default role
 (Viewer or Editor). Existing users are matched by OIDC subject, email or
@@ -295,9 +348,16 @@ public HTTPS URL so the callback matches the provider configuration.
 | `CADDY_ADMIN_ORIGIN` | `http://127.0.0.1:2019` | `Origin` header sent to the Admin API (for `enforce_origin`) |
 | `CADDY_HTTP_PORT` | `80` | Port used when CaddyWeb creates a Caddy server |
 | `CADDY_HTTPS_PORT` | `443` | TLS port used when CaddyWeb creates a Caddy server |
-| `CADDYWEB_DATA_DIR` | `./data` (`/app/data` in Docker) | Directory for the SQLite database |
-| `CADDYWEB_DB_PATH` | `${DATA_DIR}/caddyweb.db` | Explicit SQLite file path |
+| `CADDYWEB_CONFIG_DIR` | `./data` (`/app/data` in Docker) | Directory for encrypted `database.json` |
 | `CADDYWEB_BASE_DOMAIN` | – | Base domain for `subdomain` in the API |
+| `DATABASE_URL` | – | MySQL URL, e.g. `mysql://user:pass@host:3306/db` |
+| `DB_HOST` | – | MySQL/MariaDB host |
+| `DB_PORT` | `3306` | MySQL/MariaDB port |
+| `DB_NAME` | – | Database name |
+| `DB_USER` | – | Database user |
+| `DB_PASSWORD` | – | Database password |
+| `DB_SSL` | `false` | Enable TLS to the database |
+| `DB_SSL_REJECT_UNAUTHORIZED` | `true` | Verify the database TLS certificate |
 | `APP_USERNAME` | `admin` | Login username |
 | `APP_PASSWORD` | – | Login password; **required**, the panel stays locked without it |
 | `AUTH_SECRET` | `APP_PASSWORD` | Signing key for the session cookie |
@@ -408,20 +468,20 @@ The panel listens on **18080** inside the container and Compose publishes it on
 CADDYWEB_PORT=28080 docker compose up -d
 ```
 
-Compose mounts the `caddyweb_data` volume at `/app/data` for the SQLite
-database, users, API tokens and OAuth settings. Back that volume up together
-with the Caddy data volume.
+Compose mounts the `caddyweb_data` volume at `/app/data` for the encrypted
+database connection file; users, settings and tokens live in MySQL/MariaDB.
+Back up both the volume and your database.
 
 Published image:
 
 ```bash
-docker pull docker-registry.evoxy.de/caddyweb:0.7.1
+docker pull docker-registry.evoxy.de/caddyweb:0.8.0
 docker run -d --name caddyweb -p 18080:18080 \
   -e APP_USERNAME=admin \
   -e APP_PASSWORD='pick-a-strong-password' \
   -e AUTH_SECRET="$(openssl rand -hex 32)" \
   -e CADDY_ADMIN_URL='http://<caddy-host>:2019' \
-  docker-registry.evoxy.de/caddyweb:0.7.1
+  docker-registry.evoxy.de/caddyweb:0.8.0
 ```
 
 Caddy's admin endpoint is bound inside the compose network only and is **not**
@@ -443,8 +503,10 @@ the server.
 - Login attempts are rate limited per IP address.
 - Passwords are stored as bcrypt hashes. API tokens are stored only as SHA-256
   hashes; the plaintext token is shown once.
-- The database file contains password hashes, token hashes and OAuth settings.
-  Restrict access to the data directory and include it in backups.
+- The MySQL/MariaDB database contains password hashes, token hashes, OAuth/SMTP
+  settings, avatars and email history. Restrict database access and back it up.
+- `database.json` contains the encrypted database password. Keep
+  `CADDYWEB_CONFIG_DIR` private and stable; environment variables override it.
 - Password login stays enabled when OAuth is configured, so an IdP outage cannot
   lock you out. Restrict access in the IdP app and via the optional OIDC
   allowlists.
@@ -467,7 +529,10 @@ the server.
 | `redirect_uri` mismatch from the IdP | Set `APP_URL` (or `OIDC_REDIRECT_URI`) to the public URL and register the same callback in Authentik |
 | `oauth_forbidden` after SSO | The account does not match `OIDC_ALLOWED_USERS` / `OIDC_ALLOWED_GROUPS`; adjust the allowlist or the IdP policy |
 | `oauth_state` after SSO | The state cookie expired or was blocked. Finish the flow within 10 minutes and allow cookies for the panel |
-| Database unavailable | Make `CADDYWEB_DATA_DIR` writable and mounted; check the path in Settings → Database. Environment password login still works |
+| Database unavailable | Check that MySQL/MariaDB is reachable, the host/port/user/password are correct and `DB_SSL` matches the server. Use `/setup?edit=1` after signing in with the environment admin |
+| Setup wizard does not appear | A database is already configured (environment or `database.json`). Open `/setup?edit=1` to change it |
+| Database setup fails with access denied | Grant the database user `CREATE`, `ALTER`, `INDEX`, `SELECT`, `INSERT`, `UPDATE`, `DELETE` on the database |
+| `database.json` password cannot be decrypted | `AUTH_SECRET` or `APP_PASSWORD` changed. Re-enter the database password in `/setup?edit=1` |
 | SMTP test fails | Check host/port/security, credentials and `SMTP_REJECT_UNAUTHORIZED`; view the error in Recent emails |
 | No alert emails | Enable Health alerts, select a role with users that have an email and notifications enabled, or add an extra recipient |
 | Profile avatar is missing in the sidebar | Save the profile and reload; avatars are stored in the database |
@@ -495,7 +560,9 @@ src/app/api/v1/         bearer-token subdomain API
 src/app/api/admin/      users, API tokens, OAuth, SMTP and database endpoints
 src/app/api/me/         profile and password endpoints
 src/lib/oauth.ts        OIDC discovery, PKCE, token exchange and verification
-src/lib/db.ts           embedded SQLite schema, seeding and backups
+src/app/setup/           first-run MySQL/MariaDB setup wizard
+src/lib/db.ts           MySQL/MariaDB pool, schema and seeding
+src/lib/db-config.ts    connection config, encryption and setup
 src/lib/users.ts        accounts, roles, profiles and API tokens
 src/lib/mailer.ts       SMTP transport and email log
 src/lib/monitor.ts      background Caddy/upstream health monitor

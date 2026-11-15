@@ -38,7 +38,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const user = getUserById(auth.user.userId);
+    const user = await getUserById(auth.user.userId);
     if (!user) return fail("User not found.", 404);
 
     const hasPassword = user.authSource === "password" || user.authSource === "both";
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
       if (!valid) return fail("Current password is incorrect.", 401);
     }
 
-    setUserPassword(user.id, parsed.data.newPassword);
+    await setUserPassword(user.id, parsed.data.newPassword);
     audit(auth.user.username, "profile.password");
     return ok({});
   } catch (error) {

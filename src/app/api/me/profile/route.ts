@@ -41,7 +41,7 @@ export async function GET() {
   }
 
   try {
-    const user = getUserById(auth.user.userId);
+    const user = await getUserById(auth.user.userId);
     if (!user) return fail("User not found.", 404);
     return ok({ user });
   } catch (error) {
@@ -74,7 +74,7 @@ export async function PATCH(request: Request) {
   }
 
   try {
-    const user = updateProfile(auth.user.userId, {
+    const user = await updateProfile(auth.user.userId, {
       name: parsed.data.name,
       email:
         parsed.data.email === undefined ? undefined : parsed.data.email || null,

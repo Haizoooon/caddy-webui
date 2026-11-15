@@ -25,7 +25,7 @@ export async function POST(request: Request) {
   const parsed = schema.safeParse(body);
   if (!parsed.success) return fail("Enter a valid email address.", 422);
 
-  const settings = getSmtpSettings();
+  const settings = await getSmtpSettings();
   if (!settings.enabled || !settings.host || !settings.fromEmail) {
     return fail("Save and enable SMTP settings first.", 422);
   }

@@ -63,7 +63,7 @@ export async function GET() {
   if ("response" in auth) return auth.response;
 
   try {
-    return ok({ smtp: getSmtpSummary(), emails: recentEmails(10) });
+    return ok({ smtp: await getSmtpSummary(), emails: await recentEmails(10) });
   } catch (error) {
     return errorResponse(error);
   }
@@ -103,7 +103,7 @@ export async function PUT(request: Request) {
   };
 
   try {
-    const summary = saveSmtpSettings(input);
+    const summary = await saveSmtpSettings(input);
     audit(
       auth.user.username,
       "smtp.update",

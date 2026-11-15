@@ -32,7 +32,7 @@ export async function GET() {
   if ("response" in auth) return auth.response;
 
   try {
-    return ok({ tokens: listApiTokens() });
+    return ok({ tokens: await listApiTokens() });
   } catch (error) {
     return errorResponse(error);
   }
@@ -53,7 +53,7 @@ export async function POST(request: Request) {
   if (!parsed.success) return fail("Please check the token details.", 422);
 
   try {
-    const created = createApiToken(
+    const created = await createApiToken(
       parsed.data.userId,
       parsed.data.name,
       parsed.data.expiresInDays ?? null,
@@ -80,7 +80,7 @@ export async function DELETE(request: Request) {
   if (!Number.isInteger(id) || id < 1) return fail("Invalid token id.", 400);
 
   try {
-    revokeApiToken(id);
+    await revokeApiToken(id);
     audit(auth.user.username, "token.revoke", String(id));
     return ok({});
   } catch (error) {

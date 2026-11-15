@@ -64,17 +64,17 @@ export async function POST(request: Request) {
   if (envMatches) {
     provider = "env";
     try {
-      user = ensureEnvAdmin();
-      if (user) touchLogin(user.id);
+      user = await ensureEnvAdmin();
+      if (user) await await touchLogin(user.id);
     } catch {
       // The environment admin remains usable even if the database fails.
       user = null;
     }
   } else {
     try {
-      user = authenticateUser(username, password);
+      user = await authenticateUser(username, password);
       if (user) {
-        touchLogin(user.id);
+        await touchLogin(user.id);
         provider = "password";
       }
     } catch {

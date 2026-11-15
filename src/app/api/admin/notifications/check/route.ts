@@ -12,7 +12,7 @@ export async function POST() {
 
   try {
     const result = await runHealthCheck({ force: true });
-    return ok({ check: result, emails: recentEmails(10) });
+    return ok({ check: result, emails: await recentEmails(10) });
   } catch (error) {
     console.error("[caddyweb] manual health check:", error);
     return fail("Health check failed.", 500);

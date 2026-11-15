@@ -54,7 +54,7 @@ export async function PATCH(
   if (!parsed.success) return fail("Please check the user details.", 422);
 
   try {
-    const user = updateUser(id, {
+    const user = await updateUser(id, {
       username: parsed.data.username,
       name: parsed.data.name,
       email:
@@ -83,7 +83,7 @@ export async function DELETE(
   if (!Number.isInteger(id) || id < 1) return fail("Invalid user id.", 400);
 
   try {
-    deleteUser(id, auth.user.userId);
+    await deleteUser(id, auth.user.userId);
     audit(auth.user.username, "user.delete", String(id));
     return ok({});
   } catch (error) {

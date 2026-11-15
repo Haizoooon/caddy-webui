@@ -1,5 +1,5 @@
 import nodemailer from "nodemailer";
-import { getDb } from "./db";
+import { getPool } from "./db";
 import { getSmtpSettings, type SmtpSettings } from "./smtp-settings";
 
 export class MailError extends Error {
@@ -45,24 +45,24 @@ function fromHeader(settings: SmtpSettings): string {
   return `"${name}" <${sanitizeHeader(settings.fromEmail)}>`;
 }
 
-export function logEmail(
+export async function logEmail(
   recipient: string,
   subject: string,
   status: "sent" | "failed",
   error?: string,
-): void {
+): Promise<void> {
   try {
-    getDb()
-      .prepare(
-        "INSERT INTO email_log (recipient, subject, status, error, created_at) VALUES (?, ?, ?, ?, ?)",
-      )
-      .run(
-        recipient,
+    const pool = await getPool();
+    await pool.execute(
+      "INSERT INTO email_log (recipient, subject, status, error, created_at) VALUES (?, ?, ?, ?, ?)",
+      [
+        recipient.slice(0, 254),
         subject.slice(0, 300),
         status,
-        error ? error.slice(0, 500) : null,
+        error ? error.slice(0, 2000) : null,
         new Date().toISOString(),
-      );
+      ],
+    );
   } catch {
     // Logging must never break the send path.
   }
@@ -74,7 +74,7 @@ export async function sendEmail(input: {
   text: string;
   html?: string;
 }): Promise<void> {
-  const settings = getSmtpSettings();
+  const settings = await getSmtpSettings();
   if (!settings.enabled || !settings.host || !settings.fromEmail) {
     throw new MailError("SMTP is not configured or disabled.");
   }
@@ -91,10 +91,10 @@ export async function sendEmail(input: {
       text: input.text,
       html: input.html,
     });
-    logEmail(to, subject, "sent");
+    await logEmail(to, subject, "sent");
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown mail error";
-    logEmail(to, subject, "failed", message);
+    await logEmail(to, subject, "failed", message);
     throw new MailError(message);
   }
 }
@@ -133,7 +133,7 @@ export async function sendNotificationEmails(
   );
   let sent = 0;
 
-  const lines = text.split("\n").map((line) => line);
+  const lines = text.split("\n");
 
   for (const recipient of unique) {
     try {
@@ -160,22 +160,24 @@ export async function sendNotificationEmails(
   return sent;
 }
 
-export function recentEmails(limit = 10): EmailLogEntry[] {
-  const rows = getDb()
-    .prepare(
-      "SELECT id, recipient, subject, status, error, created_at FROM email_log ORDER BY id DESC LIMIT ?",
-    )
-    .all(limit) as unknown as {
-    id: number;
-    recipient: string;
-    subject: string;
-    status: "sent" | "failed";
-    error: string | null;
-    created_at: string;
-  }[];
+export async function recentEmails(limit = 10): Promise<EmailLogEntry[]> {
+  const pool = await getPool();
+  const [rows] = await pool.execute(
+    "SELECT id, recipient, subject, status, error, created_at FROM email_log ORDER BY id DESC LIMIT ?",
+    [limit],
+  );
 
-  return rows.map((row) => ({
-    id: row.id,
+  return (
+    rows as {
+      id: number;
+      recipient: string;
+      subject: string;
+      status: "sent" | "failed";
+      error: string | null;
+      created_at: string;
+    }[]
+  ).map((row) => ({
+    id: Number(row.id),
     recipient: row.recipient,
     subject: row.subject,
     status: row.status,

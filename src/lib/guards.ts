@@ -39,7 +39,7 @@ async function resolveSessionUser(
   }
 
   try {
-    const user = getUserById(payload.userId);
+    const user = await getUserById(payload.userId);
     if (!user || !user.active) return null;
     return {
       userId: user.id,

@@ -36,7 +36,7 @@ export async function GET() {
   if ("response" in auth) return auth.response;
 
   try {
-    return ok({ users: listUsers() });
+    return ok({ users: await listUsers() });
   } catch (error) {
     return errorResponse(error);
   }
@@ -59,7 +59,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const user = createUser({
+    const user = await createUser({
       username: parsed.data.username,
       name: parsed.data.name,
       email: parsed.data.email || undefined,

@@ -120,9 +120,9 @@ function fromStored(stored: StoredOAuthSettings): OAuthSettings {
   };
 }
 
-export function getOAuthSettings(): OAuthSettings {
+export async function getOAuthSettings(): Promise<OAuthSettings> {
   try {
-    const raw = getSetting(SETTING_KEY);
+    const raw = await getSetting(SETTING_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as StoredOAuthSettings;
       return fromStored(parsed);
@@ -134,8 +134,10 @@ export function getOAuthSettings(): OAuthSettings {
   return envSettings();
 }
 
-export function saveOAuthSettings(input: OAuthSettingsInput): OAuthSummary {
-  const current = getOAuthSettings();
+export async function saveOAuthSettings(
+  input: OAuthSettingsInput,
+): Promise<OAuthSummary> {
+  const current = await getOAuthSettings();
   const secret =
     input.clientSecret && input.clientSecret.trim()
       ? input.clientSecret.trim()
@@ -156,7 +158,7 @@ export function saveOAuthSettings(input: OAuthSettingsInput): OAuthSummary {
     redirectUri: input.redirectUri?.trim() || undefined,
   };
 
-  setSetting(SETTING_KEY, JSON.stringify(stored));
+  await setSetting(SETTING_KEY, JSON.stringify(stored));
   return summarize(fromStored(stored));
 }
 
@@ -178,6 +180,6 @@ export function summarize(settings: OAuthSettings): OAuthSummary {
   };
 }
 
-export function getOAuthSummary(): OAuthSummary {
-  return summarize(getOAuthSettings());
+export async function getOAuthSummary(): Promise<OAuthSummary> {
+  return summarize(await getOAuthSettings());
 }

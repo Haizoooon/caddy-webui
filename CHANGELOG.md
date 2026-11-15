@@ -2,6 +2,32 @@
 
 All notable changes to CaddyWeb are documented here.
 
+## 0.8.0 — 2026-11-15
+
+### Added
+
+- MySQL and MariaDB support through `mysql2`; SQLite has been removed.
+- First-run setup wizard at `/setup` with connection testing, schema creation,
+  admin seeding and encrypted `database.json` storage.
+- Environment configuration through `DATABASE_URL` or `DB_HOST`, `DB_PORT`,
+  `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_SSL` and
+  `DB_SSL_REJECT_UNAUTHORIZED`.
+- Database status card shows engine version, host, database, user, size, schema
+  version and counts; admins can reconfigure the connection.
+- Automatic redirect to the setup wizard when no database is configured or the
+  database is unreachable.
+
+### Changed
+
+- All users, API tokens, OAuth/SMTP/notification settings and email history now
+  live in MySQL/MariaDB.
+- The Docker volume only persists the encrypted database connection file.
+- Schema initialization is idempotent and seeds the environment admin.
+
+### Removed
+
+- Embedded SQLite storage, `CADDYWEB_DB_PATH`, and the SQLite backup download.
+
 ## 0.7.1 — 2026-11-15
 
 ### Fixed

@@ -4,6 +4,7 @@ import { LockKeyhole, ShieldCheck } from "lucide-react";
 import { appUsername, isAuthEnabled } from "@/lib/session";
 import { getSessionUser } from "@/lib/guards";
 import { isOAuthConfigured, oidcProviderName } from "@/lib/oauth";
+import { isDbConfigured } from "@/lib/db-config";
 import { startMonitor } from "@/lib/monitor";
 import { APP_VERSION } from "@/lib/version";
 import { LoginForm } from "@/components/auth/login-form";
@@ -39,7 +40,8 @@ export default async function LoginPage({
   const oauthError = params.error
     ? oauthErrorMessages[params.error] ?? "Sign-in failed. Please try again."
     : "";
-  const oauthEnabled = isOAuthConfigured();
+  const oauthEnabled = (await isDbConfigured()) && (await isOAuthConfigured());
+  const providerName = await oidcProviderName();
 
   if (configured) {
     // Verify the full session (including the database user), not just the
@@ -118,7 +120,7 @@ export default async function LoginPage({
                 defaultUsername={appUsername()}
                 initialError={oauthError}
                 oauthEnabled={oauthEnabled}
-                oauthProviderName={oidcProviderName()}
+                oauthProviderName={providerName}
               />
             </>
           ) : (

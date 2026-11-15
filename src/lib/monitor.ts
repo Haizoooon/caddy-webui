@@ -25,9 +25,9 @@ export interface HealthCheckResult {
 
 let running = false;
 
-function readState(): MonitorState {
+async function readState(): Promise<MonitorState> {
   try {
-    const raw = getSetting("monitor:state");
+    const raw = await getSetting("monitor:state");
     if (raw) return JSON.parse(raw) as MonitorState;
   } catch {
     // ignore malformed state
@@ -36,9 +36,13 @@ function readState(): MonitorState {
   return { caddy: "up", upstreams: {}, checkedAt: null };
 }
 
-function writeState(state: MonitorState): void {
-  setSetting("monitor:state", JSON.stringify(state));
-  setSetting("monitor:lastCheck", state.checkedAt ?? new Date().toISOString());
+async function writeState(state: MonitorState): Promise<void> {
+  try {
+    await setSetting("monitor:state", JSON.stringify(state));
+    await setSetting("monitor:lastCheck", state.checkedAt ?? new Date().toISOString());
+  } catch {
+    // The database may not be configured yet.
+  }
 }
 
 async function notify(
@@ -67,7 +71,7 @@ export async function runHealthCheck(options: { force?: boolean } = {}): Promise
   running = true;
 
   try {
-    const settings = getNotificationSettings();
+    const settings = await getNotificationSettings();
 
     if (!options.force && !settings.enabled) {
       return {
@@ -82,7 +86,7 @@ export async function runHealthCheck(options: { force?: boolean } = {}): Promise
     }
 
     if (!options.force) {
-      const lastRun = Number(getSetting("monitor:lastRun") || 0);
+      const lastRun = Number((await getSetting("monitor:lastRun")) || 0);
       if (
         Number.isFinite(lastRun) &&
         Date.now() - lastRun < settings.intervalMinutes * 60_000
@@ -99,8 +103,8 @@ export async function runHealthCheck(options: { force?: boolean } = {}): Promise
       }
     }
 
-    const state = readState();
-    const recipients = settings.enabled ? notificationRecipientEmails(settings) : [];
+    const state = await readState();
+    const recipients = settings.enabled ? await notificationRecipientEmails(settings) : [];
     const adminUrl = publicAdminUrl();
     const stamp = new Date().toISOString();
     const upstreamStatus: HealthCheckResult["upstreams"] = [];
@@ -192,8 +196,12 @@ export async function runHealthCheck(options: { force?: boolean } = {}): Promise
     }
 
     state.checkedAt = stamp;
-    writeState(state);
-    setSetting("monitor:lastRun", String(Date.now()));
+    await writeState(state);
+    try {
+      await setSetting("monitor:lastRun", String(Date.now()));
+    } catch {
+      // ignore
+    }
 
     return {
       ok: true,
