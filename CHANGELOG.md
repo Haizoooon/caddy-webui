@@ -2,6 +2,15 @@
 
 All notable changes to CaddyWeb are documented here.
 
+## 0.7.1 — 2026-11-15
+
+### Fixed
+
+- Login redirect loop (`ERR_TOO_MANY_REDIRECTS`) when the session cookie is
+  valid but the database user was deleted or deactivated, or the database was
+  temporarily unavailable. The login page now validates the full session
+  (including the database user) before redirecting to the dashboard.
+
 ## 0.7.0 — 2026-11-15
 
 ### Added

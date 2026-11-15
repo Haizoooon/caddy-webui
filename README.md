@@ -415,13 +415,13 @@ with the Caddy data volume.
 Published image:
 
 ```bash
-docker pull docker-registry.evoxy.de/caddyweb:0.7.0
+docker pull docker-registry.evoxy.de/caddyweb:0.7.1
 docker run -d --name caddyweb -p 18080:18080 \
   -e APP_USERNAME=admin \
   -e APP_PASSWORD='pick-a-strong-password' \
   -e AUTH_SECRET="$(openssl rand -hex 32)" \
   -e CADDY_ADMIN_URL='http://<caddy-host>:2019' \
-  docker-registry.evoxy.de/caddyweb:0.7.0
+  docker-registry.evoxy.de/caddyweb:0.7.1
 ```
 
 Caddy's admin endpoint is bound inside the compose network only and is **not**

@@ -1,13 +1,8 @@
 import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
 import type { Metadata } from "next";
 import { LockKeyhole, ShieldCheck } from "lucide-react";
-import {
-  appUsername,
-  isAuthEnabled,
-  SESSION_COOKIE,
-  verifySessionToken,
-} from "@/lib/session";
+import { appUsername, isAuthEnabled } from "@/lib/session";
+import { getSessionUser } from "@/lib/guards";
 import { isOAuthConfigured, oidcProviderName } from "@/lib/oauth";
 import { startMonitor } from "@/lib/monitor";
 import { APP_VERSION } from "@/lib/version";
@@ -47,8 +42,11 @@ export default async function LoginPage({
   const oauthEnabled = isOAuthConfigured();
 
   if (configured) {
-    const token = (await cookies()).get(SESSION_COOKIE)?.value;
-    if (await verifySessionToken(token)) redirect("/");
+    // Verify the full session (including the database user), not just the
+    // cookie signature. Otherwise a deleted/inactive user or an unavailable
+    // database causes a / -> /login -> / redirect loop.
+    const session = await getSessionUser();
+    if (session) redirect("/");
   }
 
   return (

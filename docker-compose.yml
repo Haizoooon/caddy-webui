@@ -18,7 +18,7 @@ services:
       - caddyweb
 
   caddyweb:
-    image: docker-registry.evoxy.de/caddyweb:0.7.0
+    image: docker-registry.evoxy.de/caddyweb:0.7.1
     restart: unless-stopped
     environment:
       PORT: "18080"
