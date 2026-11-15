@@ -2,6 +2,16 @@
 
 All notable changes to CaddyWeb are documented here.
 
+## 0.8.1 — 2026-11-15
+
+### Changed
+
+- Settings is split into **General**, **Authentication**, **Email**, **Alerts**,
+  **Database** and **System** tabs instead of one long page.
+- Only the active tab loads its data; SMTP and health-alert settings are now
+  separate cards.
+- Admin-only tabs redirect non-admins to the General tab.
+
 ## 0.8.0 — 2026-11-15
 
 ### Added

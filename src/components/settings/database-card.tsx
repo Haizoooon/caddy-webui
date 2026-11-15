@@ -20,7 +20,7 @@ export async function DatabaseCard() {
   const status: DatabaseStatus = await databaseStatus();
 
   return (
-    <Card className="mt-6">
+    <Card>
       <CardHeader
         title="Database"
         description="MySQL / MariaDB stores users, roles, API tokens and all dashboard settings."

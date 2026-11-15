@@ -183,7 +183,7 @@ Roles, usernames and account state are managed by Admins under **Users**.
 
 ## SMTP and health alerts
 
-Admins configure email in **Settings → SMTP** and **Settings → Health alerts**.
+Admins configure email in **Settings → Email** and alerts in **Settings → Alerts**.
 
 - SMTP host, port, STARTTLS / implicit TLS / plain, username, password,
   from name/address, reply-to and TLS certificate verification.
@@ -298,7 +298,7 @@ CaddyWeb can authenticate through Authentik or any OpenID Connect provider.
 Password login always stays available; OAuth is an additional method and appears
 on the login page only when it is configured.
 
-Configure it in **Settings → Single sign-on (OIDC)** as an Admin. The client
+Configure it in **Settings → Authentication** as an Admin. The client
 secret is encrypted at rest with `AUTH_SECRET`. The environment variables below
 are an initial/fallback configuration and are overridden by the dashboard form.
 New OAuth users are provisioned with the configured default role; manage roles
@@ -447,7 +447,7 @@ To exercise health alerts, start the Caddy mock with failing upstreams:
 
 ```bash
 MOCK_UPSTREAM_FAILS=2 npm run mock:caddy
-# then use Run check now in Settings → Health alerts
+# then use Run check now in Settings → Alerts
 ```
 
 ---
@@ -475,14 +475,14 @@ Back up both the volume and your database.
 Published image:
 
 ```bash
-docker pull docker-registry.evoxy.de/caddyweb:0.8.0
+docker pull docker-registry.evoxy.de/caddyweb:0.8.1
 docker run -d --name caddyweb -p 18080:18080 \
   -v caddyweb_data:/app/data \
   -e APP_USERNAME=admin \
   -e APP_PASSWORD='pick-a-strong-password' \
   -e AUTH_SECRET="$(openssl rand -hex 32)" \
   -e CADDY_ADMIN_URL='http://<caddy-host>:2019' \
-  docker-registry.evoxy.de/caddyweb:0.8.0
+  docker-registry.evoxy.de/caddyweb:0.8.1
 ```
 
 Open the panel, sign in with the environment admin and complete `/setup`, or

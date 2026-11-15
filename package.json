@@ -1,6 +1,6 @@
 {
   "name": "caddyweb",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "private": true,
   "description": "A flat-design web UI for the Caddy Admin API",
   "scripts": {

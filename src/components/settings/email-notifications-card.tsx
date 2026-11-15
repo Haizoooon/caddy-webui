@@ -15,9 +15,7 @@ import { api, ClientApiError } from "@/lib/api-client";
 import { roleLabels, roles, type Role } from "@/lib/roles";
 import { formatDateTime } from "@/lib/utils";
 import type { SmtpSummary } from "@/lib/smtp-settings";
-import type {
-  NotificationSettings,
-} from "@/lib/notifications-settings";
+import type { NotificationSettings } from "@/lib/notifications-settings";
 import type { EmailLogEntry } from "@/lib/mailer";
 import type { HealthCheckResult } from "@/lib/monitor";
 import {
@@ -44,17 +42,65 @@ interface SmtpForm {
   rejectUnauthorized: boolean;
 }
 
-export function EmailNotificationsCard({
+function RecentEmailsCard({ emails }: { emails: EmailLogEntry[] }) {
+  return (
+    <Card>
+      <CardHeader
+        title="Recent emails"
+        description="Last 10 delivery attempts, including failures."
+        action={<Badge tone="muted">{emails.length}</Badge>}
+      />
+      {emails.length === 0 ? (
+        <p className="p-4 text-sm text-muted">No email has been sent yet.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[620px] text-left text-sm">
+            <thead className="border-b border-line bg-cloud/50 text-[10px] font-bold tracking-[0.1em] text-muted uppercase">
+              <tr>
+                <th className="px-4 py-2.5 font-bold">Recipient</th>
+                <th className="px-3 py-2.5 font-bold">Subject</th>
+                <th className="px-3 py-2.5 font-bold">Status</th>
+                <th className="px-4 py-2.5 font-bold">Time</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line">
+              {emails.map((email) => (
+                <tr key={email.id}>
+                  <td className="px-4 py-2.5 text-xs text-ink-soft">{email.recipient}</td>
+                  <td className="max-w-[280px] truncate px-3 py-2.5 text-xs text-ink-soft">
+                    {email.subject}
+                  </td>
+                  <td className="px-3 py-2.5">
+                    {email.status === "sent" ? (
+                      <Badge tone="success">
+                        <CheckCircle2 className="h-3 w-3" aria-hidden />
+                        Sent
+                      </Badge>
+                    ) : (
+                      <Badge tone="danger">
+                        <TriangleAlert className="h-3 w-3" aria-hidden />
+                        Failed
+                      </Badge>
+                    )}
+                  </td>
+                  <td className="px-4 py-2.5 text-xs text-muted">
+                    {formatDateTime(email.createdAt)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+export function SmtpSettingsCard({
   smtp: initialSmtp,
-  notifications: initialNotifications,
-  recipients: initialRecipients,
-  lastCheck: initialLastCheck,
   emails: initialEmails,
 }: {
   smtp: SmtpSummary;
-  notifications: NotificationSettings;
-  recipients: string[];
-  lastCheck: string | null;
   emails: EmailLogEntry[];
 }) {
   const router = useRouter();
@@ -75,34 +121,10 @@ export function EmailNotificationsCard({
   const [smtpBusy, setSmtpBusy] = useState(false);
   const [testTo, setTestTo] = useState(initialSmtp.fromEmail);
   const [testBusy, setTestBusy] = useState(false);
-
-  const [notifications, setNotifications] =
-    useState<NotificationSettings>(initialNotifications);
-  const [notificationBusy, setNotificationBusy] = useState(false);
-  const [checkBusy, setCheckBusy] = useState(false);
-  const [checkResult, setCheckResult] = useState<HealthCheckResult | null>(null);
   const [emails, setEmails] = useState(initialEmails);
-  const [lastCheck, setLastCheck] = useState(initialLastCheck);
-  const [recipients, setRecipients] = useState(initialRecipients);
 
   function updateSmtp<K extends keyof SmtpForm>(key: K, value: SmtpForm[K]) {
     setSmtp((current) => ({ ...current, [key]: value }));
-  }
-
-  function updateNotifications<K extends keyof NotificationSettings>(
-    key: K,
-    value: NotificationSettings[K],
-  ) {
-    setNotifications((current) => ({ ...current, [key]: value }));
-  }
-
-  function toggleRole(role: Role) {
-    setNotifications((current) => {
-      const selected = current.roles.includes(role)
-        ? current.roles.filter((entry) => entry !== role)
-        : [...current.roles, role];
-      return { ...current, roles: selected.length > 0 ? selected : current.roles };
-    });
   }
 
   async function saveSmtp() {
@@ -166,81 +188,8 @@ export function EmailNotificationsCard({
     }
   }
 
-  async function saveNotifications() {
-    setNotificationBusy(true);
-    try {
-      const result = await api<{
-        ok: true;
-        notifications: NotificationSettings;
-      }>("/api/admin/notifications", {
-        method: "PUT",
-        body: JSON.stringify({
-          enabled: notifications.enabled,
-          intervalMinutes: Number(notifications.intervalMinutes),
-          roles: notifications.roles,
-          extraRecipients: notifications.extraRecipients,
-          events: notifications.events,
-        }),
-      });
-      setNotifications(result.notifications);
-      const refreshed = await api<{
-        ok: true;
-        recipients: string[];
-        lastCheck: string | null;
-        emails: EmailLogEntry[];
-      }>("/api/admin/notifications");
-      setRecipients(refreshed.recipients);
-      setLastCheck(refreshed.lastCheck);
-      setEmails(refreshed.emails);
-      push({ tone: "success", title: "Notification settings saved" });
-      router.refresh();
-    } catch (error) {
-      push({
-        tone: "danger",
-        title: "Could not save notifications",
-        description: error instanceof Error ? error.message : "Unknown error",
-      });
-    } finally {
-      setNotificationBusy(false);
-    }
-  }
-
-  async function runCheck() {
-    setCheckBusy(true);
-    try {
-      const result = await api<{
-        ok: true;
-        check: HealthCheckResult;
-        emails: EmailLogEntry[];
-      }>("/api/admin/notifications/check", { method: "POST" });
-      setCheckResult(result.check);
-      setEmails(result.emails);
-      setLastCheck(result.check.checkedAt ?? lastCheck);
-      push({
-        tone: result.check.ok ? "success" : "warning",
-        title: result.check.ok
-          ? result.check.caddyUp
-            ? "Health check completed"
-            : "Caddy is unreachable"
-          : "Health check skipped",
-        description: result.check.skipped
-          ? `Reason: ${result.check.skipped}`
-          : `${result.check.notificationsSent} notification email(s) sent.`,
-      });
-      router.refresh();
-    } catch (error) {
-      push({
-        tone: "danger",
-        title: "Health check failed",
-        description: error instanceof Error ? error.message : "Unknown error",
-      });
-    } finally {
-      setCheckBusy(false);
-    }
-  }
-
   return (
-    <div className="mt-6 space-y-6">
+    <div className="space-y-6">
       <Card>
         <CardHeader
           title="SMTP"
@@ -397,6 +346,125 @@ export function EmailNotificationsCard({
         </div>
       </Card>
 
+      <RecentEmailsCard emails={emails} />
+    </div>
+  );
+}
+
+export function HealthAlertsCard({
+  notifications: initialNotifications,
+  recipients: initialRecipients,
+  lastCheck: initialLastCheck,
+  emails: initialEmails,
+}: {
+  notifications: NotificationSettings;
+  recipients: string[];
+  lastCheck: string | null;
+  emails: EmailLogEntry[];
+}) {
+  const router = useRouter();
+  const { push } = useToast();
+
+  const [notifications, setNotifications] =
+    useState<NotificationSettings>(initialNotifications);
+  const [notificationBusy, setNotificationBusy] = useState(false);
+  const [checkBusy, setCheckBusy] = useState(false);
+  const [checkResult, setCheckResult] = useState<HealthCheckResult | null>(null);
+  const [emails, setEmails] = useState(initialEmails);
+  const [lastCheck, setLastCheck] = useState(initialLastCheck);
+  const [recipients, setRecipients] = useState(initialRecipients);
+
+  function updateNotifications<K extends keyof NotificationSettings>(
+    key: K,
+    value: NotificationSettings[K],
+  ) {
+    setNotifications((current) => ({ ...current, [key]: value }));
+  }
+
+  function toggleRole(role: Role) {
+    setNotifications((current) => {
+      const selected = current.roles.includes(role)
+        ? current.roles.filter((entry) => entry !== role)
+        : [...current.roles, role];
+      return { ...current, roles: selected.length > 0 ? selected : current.roles };
+    });
+  }
+
+  async function saveNotifications() {
+    setNotificationBusy(true);
+    try {
+      const result = await api<{
+        ok: true;
+        notifications: NotificationSettings;
+      }>("/api/admin/notifications", {
+        method: "PUT",
+        body: JSON.stringify({
+          enabled: notifications.enabled,
+          intervalMinutes: Number(notifications.intervalMinutes),
+          roles: notifications.roles,
+          extraRecipients: notifications.extraRecipients,
+          events: notifications.events,
+        }),
+      });
+      setNotifications(result.notifications);
+      const refreshed = await api<{
+        ok: true;
+        recipients: string[];
+        lastCheck: string | null;
+        emails: EmailLogEntry[];
+      }>("/api/admin/notifications");
+      setRecipients(refreshed.recipients);
+      setLastCheck(refreshed.lastCheck);
+      setEmails(refreshed.emails);
+      push({ tone: "success", title: "Notification settings saved" });
+      router.refresh();
+    } catch (error) {
+      push({
+        tone: "danger",
+        title: "Could not save notifications",
+        description: error instanceof Error ? error.message : "Unknown error",
+      });
+    } finally {
+      setNotificationBusy(false);
+    }
+  }
+
+  async function runCheck() {
+    setCheckBusy(true);
+    try {
+      const result = await api<{
+        ok: true;
+        check: HealthCheckResult;
+        emails: EmailLogEntry[];
+      }>("/api/admin/notifications/check", { method: "POST" });
+      setCheckResult(result.check);
+      setEmails(result.emails);
+      setLastCheck(result.check.checkedAt ?? lastCheck);
+      push({
+        tone: result.check.ok ? "success" : "warning",
+        title: result.check.ok
+          ? result.check.caddyUp
+            ? "Health check completed"
+            : "Caddy is unreachable"
+          : "Health check skipped",
+        description: result.check.skipped
+          ? `Reason: ${result.check.skipped}`
+          : `${result.check.notificationsSent} notification email(s) sent.`,
+      });
+      router.refresh();
+    } catch (error) {
+      push({
+        tone: "danger",
+        title: "Health check failed",
+        description: error instanceof Error ? error.message : "Unknown error",
+      });
+    } finally {
+      setCheckBusy(false);
+    }
+  }
+
+  return (
+    <div className="space-y-6">
       <Card>
         <CardHeader
           title="Health alerts"
@@ -580,55 +648,7 @@ export function EmailNotificationsCard({
         </div>
       </Card>
 
-      <Card>
-        <CardHeader
-          title="Recent emails"
-          description="Last 10 delivery attempts, including failures."
-          action={<Badge tone="muted">{emails.length}</Badge>}
-        />
-        {emails.length === 0 ? (
-          <p className="p-4 text-sm text-muted">No email has been sent yet.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[620px] text-left text-sm">
-              <thead className="border-b border-line bg-cloud/50 text-[10px] font-bold tracking-[0.1em] text-muted uppercase">
-                <tr>
-                  <th className="px-4 py-2.5 font-bold">Recipient</th>
-                  <th className="px-3 py-2.5 font-bold">Subject</th>
-                  <th className="px-3 py-2.5 font-bold">Status</th>
-                  <th className="px-4 py-2.5 font-bold">Time</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line">
-                {emails.map((email) => (
-                  <tr key={email.id}>
-                    <td className="px-4 py-2.5 text-xs text-ink-soft">{email.recipient}</td>
-                    <td className="max-w-[280px] truncate px-3 py-2.5 text-xs text-ink-soft">
-                      {email.subject}
-                    </td>
-                    <td className="px-3 py-2.5">
-                      {email.status === "sent" ? (
-                        <Badge tone="success">
-                          <CheckCircle2 className="h-3 w-3" aria-hidden />
-                          Sent
-                        </Badge>
-                      ) : (
-                        <Badge tone="danger">
-                          <TriangleAlert className="h-3 w-3" aria-hidden />
-                          Failed
-                        </Badge>
-                      )}
-                    </td>
-                    <td className="px-4 py-2.5 text-xs text-muted">
-                      {formatDateTime(email.createdAt)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
+      <RecentEmailsCard emails={emails} />
     </div>
   );
 }

@@ -115,7 +115,7 @@ export function OAuthSettingsForm({
   const callback = form.redirectUri || callbackUrl;
 
   return (
-    <Card className="mt-6">
+    <Card>
       <CardHeader
         title="Single sign-on (OIDC)"
         description="Configure Authentik or any OpenID Connect provider. Password login always stays available."
