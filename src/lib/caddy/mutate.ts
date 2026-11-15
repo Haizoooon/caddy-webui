@@ -23,6 +23,44 @@ function httpServers(config: CaddyConfig): Record<string, CaddyServer> {
   return config.apps.http.servers;
 }
 
+function envPort(name: string, fallback: string): string {
+  return (process.env[name] || fallback).replace(/^:/, "");
+}
+
+/**
+ * When CaddyWeb runs Caddy on non-default HTTP/HTTPS ports, Caddy also needs
+ * to know those ports globally. Without this, automatic HTTPS would treat the
+ * custom listeners as neither HTTP nor HTTPS. Existing explicit settings win.
+ */
+function ensureCustomPorts(config: CaddyConfig): void {
+  const httpPort = Number(envPort("CADDY_HTTP_PORT", "80"));
+  const httpsPort = Number(envPort("CADDY_HTTPS_PORT", "443"));
+
+  if (!config.apps) config.apps = {};
+  if (!config.apps.http) config.apps.http = {};
+
+  const http = config.apps.http;
+  if (httpPort !== 80 && http.http_port === undefined) http.http_port = httpPort;
+  if (httpsPort !== 443 && http.https_port === undefined) http.https_port = httpsPort;
+}
+
+function hasPort(server: CaddyServer, port: string): boolean {
+  return (server.listen ?? []).some((listen) => listen.endsWith(`:${port}`));
+}
+
+/**
+ * A server is HTTP-only when it listens on the HTTP port and not on the HTTPS
+ * port. Routes on such a server are served without a certificate.
+ */
+export function isHttpOnlyServer(
+  server: CaddyServer,
+  httpPort = envPort("CADDY_HTTP_PORT", "80"),
+  httpsPort = envPort("CADDY_HTTPS_PORT", "443"),
+): boolean {
+  if ((server.listen ?? []).length === 0) return false;
+  return hasPort(server, httpPort) && !hasPort(server, httpsPort);
+}
+
 /**
  * Picks the server that terminates TLS, or creates one. The Caddy admin API
  * is only reachable server-side, so reading the port from env here is safe.
@@ -32,15 +70,21 @@ export function ensureServer(
   preferredName?: string,
 ): { name: string; server: CaddyServer } {
   const servers = httpServers(config);
+  const httpsPort = envPort("CADDY_HTTPS_PORT", "443");
+  const httpPort = envPort("CADDY_HTTP_PORT", "80");
 
-  if (preferredName && servers[preferredName]) {
+  ensureCustomPorts(config);
+
+  if (
+    preferredName &&
+    servers[preferredName] &&
+    !isHttpOnlyServer(servers[preferredName], httpPort, httpsPort)
+  ) {
     return { name: preferredName, server: servers[preferredName] };
   }
 
-  const httpsPort = (process.env.CADDY_HTTPS_PORT || "443").replace(/^:/, "");
-
   for (const [name, server] of Object.entries(servers)) {
-    if ((server.listen ?? []).some((listen) => listen.endsWith(`:${httpsPort}`))) {
+    if (hasPort(server, httpsPort)) {
       return { name, server };
     }
   }
@@ -53,6 +97,49 @@ export function ensureServer(
 
   servers[name] = {
     listen: [`:${httpsPort}`],
+    routes: [],
+  };
+
+  return { name, server: servers[name] };
+}
+
+/**
+ * Picks (or creates) a plain-HTTP server for sites that should not have a
+ * certificate. Caddy automatically disables automatic HTTPS for servers that
+ * listen only on the HTTP port, so no certificate is requested; the same
+ * server is still used for redirects of TLS-enabled hosts.
+ */
+export function ensureHttpServer(
+  config: CaddyConfig,
+  preferredName?: string,
+): { name: string; server: CaddyServer } {
+  const servers = httpServers(config);
+  const httpPort = envPort("CADDY_HTTP_PORT", "80");
+  const httpsPort = envPort("CADDY_HTTPS_PORT", "443");
+
+  ensureCustomPorts(config);
+
+  if (preferredName) {
+    const preferred = servers[preferredName];
+    if (preferred && isHttpOnlyServer(preferred, httpPort, httpsPort)) {
+      return { name: preferredName, server: preferred };
+    }
+  }
+
+  for (const [name, server] of Object.entries(servers)) {
+    if (isHttpOnlyServer(server, httpPort, httpsPort)) {
+      return { name, server };
+    }
+  }
+
+  let name = "srv_http";
+  let counter = 2;
+  while (servers[name]) {
+    name = `srv_http${counter++}`;
+  }
+
+  servers[name] = {
+    listen: [`:${httpPort}`],
     routes: [],
   };
 
@@ -137,6 +224,12 @@ function tlsPolicies(config: CaddyConfig): CaddyTlsPolicy[] {
  */
 export function applyTlsPolicy(config: CaddyConfig, hosts: string[], mode: TlsMode): void {
   if (hosts.length === 0) return;
+
+  const existing = config.apps?.tls?.automation?.policies;
+  if (mode !== "internal" && (!existing || existing.length === 0)) {
+    // Nothing to remove; avoid creating an empty TLS app in the config.
+    return;
+  }
 
   const policies = tlsPolicies(config);
   const wanted = hosts.map((host) => host.toLowerCase());

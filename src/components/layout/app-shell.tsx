@@ -93,13 +93,11 @@ export function AppShell({ children }: { children: ReactNode }) {
       >
         <div className="flex items-center justify-between gap-2 border-b border-line px-4 py-4">
           <Link href="/" className="flex items-center gap-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded-[3px] bg-primary text-base font-black text-white">
-              C
-            </span>
+            <img src="/icon.svg" alt="" className="h-9 w-9" />
             <span>
               <span className="block text-sm font-bold tracking-tight text-ink">CaddyWeb</span>
               <span className="block text-[11px] font-medium text-muted">
-                Caddy control panel
+                Caddy Admin UI
               </span>
             </span>
           </Link>

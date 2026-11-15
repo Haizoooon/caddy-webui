@@ -11,7 +11,7 @@ export const siteKinds = [
 
 export type SiteKind = (typeof siteKinds)[number];
 
-export const tlsModes = ["auto", "internal"] as const;
+export const tlsModes = ["auto", "internal", "off"] as const;
 export type TlsMode = (typeof tlsModes)[number];
 
 export const SITE_KIND_META: Record<

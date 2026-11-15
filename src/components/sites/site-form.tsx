@@ -491,7 +491,7 @@ export function SiteForm({
               <Field
                 label="TLS"
                 htmlFor="tls"
-                hint="Automatic uses Let's Encrypt/ZeroSSL. Local CA is best for LAN or test hostnames."
+                hint="Automatic uses Let's Encrypt/ZeroSSL. Local CA is best for LAN names. No certificate serves the site over plain HTTP only."
               >
                 <Select
                   id="tls"
@@ -500,8 +500,18 @@ export function SiteForm({
                 >
                   <option value="auto">Automatic HTTPS (public certificate)</option>
                   <option value="internal">Internal CA (Caddy local authority)</option>
+                  <option value="off">No certificate (HTTP only)</option>
                 </Select>
               </Field>
+
+              {input.tls === "off" ? (
+                <Notice tone="warning" title="No certificate will be issued">
+                  The route is placed on Caddy's HTTP listener (port 80 by default,
+                  or <code className="font-mono">CADDY_HTTP_PORT</code>). Browsers will
+                  mark the site as not secure, and credentials should not be sent over
+                  plain HTTP.
+                </Notice>
+              ) : null}
 
               <div className="border-t border-line pt-4">
                 <Toggle
@@ -600,12 +610,16 @@ export function SiteForm({
                   </span>
                 </KeyValue>
                 <KeyValue label="TLS">
-                  {input.tls === "auto" ? "Automatic" : "Local CA"}
+                  {input.tls === "auto"
+                    ? "Automatic"
+                    : input.tls === "internal"
+                      ? "Local CA"
+                      : "None (HTTP)"}
                 </KeyValue>
                 <KeyValue label="Server">{serverName ?? "Auto"}</KeyValue>
               </dl>
 
-              <div className="mt-4 flex items-center gap-2">
+              <div className="mt-4 flex flex-wrap items-center gap-2">
                 {input.encode ? <Badge tone="info">gzip + zstd</Badge> : null}
                 {input.auth.enabled ? <Badge tone="purple">Basic auth</Badge> : null}
                 {input.tls === "internal" ? (
@@ -614,6 +628,7 @@ export function SiteForm({
                     Local CA
                   </Badge>
                 ) : null}
+                {input.tls === "off" ? <Badge tone="warning">No TLS</Badge> : null}
               </div>
 
               <Button type="submit" className="mt-5 w-full" disabled={busy}>

@@ -29,7 +29,7 @@ pages without writing JSON or a Caddyfile.
 | Redirect | 301 / 302 / 307 / 308 with placeholder support |
 | Respond | Fixed status code and body, e.g. a maintenance page |
 | Custom | Paste any Caddy handler array |
-| TLS | Automatic public certificates or per-host internal CA policies |
+| TLS | Automatic public certificates, per-host internal CA, or no certificate (plain HTTP) |
 | Extras | gzip/zstd compression, basic auth, path matchers, wildcard hosts |
 | Upstreams | Live request/failure counters straight from Caddy |
 | Raw config | JSON editor plus Caddyfile import through `/adapt` |
@@ -120,7 +120,22 @@ CADDY_HTTPS_PORT=8443
 ```
 
 Public ACME certificates still require ports 80/443 to be reachable. For LAN
-names use the site's **Internal CA** TLS mode instead.
+names use the site's **Internal CA** TLS mode instead. When the ports differ
+from 80/443, CaddyWeb also sets Caddy's global `http_port` / `https_port` (if
+the config does not define them) so automatic HTTPS and redirects keep working.
+
+### TLS modes
+
+Each site chooses one of three modes:
+
+| Mode | Behaviour |
+| --- | --- |
+| Automatic HTTPS | Public certificate through ACME (Let's Encrypt / ZeroSSL). |
+| Internal CA | Per-host policy using Caddy's local authority. Install the root certificate on client devices. |
+| No certificate | The route is placed on an HTTP-only server on `CADDY_HTTP_PORT` (default 80). Caddy disables automatic HTTPS for that server, so no certificate is requested. Use only on trusted networks. |
+
+No-TLS sites are served over plain HTTP. Browsers mark them as not secure, so
+never send credentials over them.
 
 ### DNS
 
@@ -218,13 +233,13 @@ CADDYWEB_PORT=28080 docker compose up -d
 Published image:
 
 ```bash
-docker pull docker-registry.evoxy.de/caddyweb:0.3.0
+docker pull docker-registry.evoxy.de/caddyweb:0.4.0
 docker run -d --name caddyweb -p 18080:18080 \
   -e APP_USERNAME=admin \
   -e APP_PASSWORD='pick-a-strong-password' \
   -e AUTH_SECRET="$(openssl rand -hex 32)" \
   -e CADDY_ADMIN_URL='http://<caddy-host>:2019' \
-  docker-registry.evoxy.de/caddyweb:0.3.0
+  docker-registry.evoxy.de/caddyweb:0.4.0
 ```
 
 Caddy's admin endpoint is bound inside the compose network only and is **not**
@@ -278,6 +293,7 @@ src/lib/caddy/          admin client, schema, route builder/parser, mutations
 src/lib/session.ts      signed cookie helpers (shared with middleware)
 src/lib/preferences.ts  theme, density and site-default preferences
 src/components/settings preferences card and account controls
+public/                 app icon, PNG icons and manifest assets
 scripts/mock-caddy.mjs  mock Admin API for local development
 ```
 

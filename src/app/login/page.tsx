@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
+import type { Metadata } from "next";
 import { LockKeyhole, ShieldCheck } from "lucide-react";
 import {
   appUsername,
@@ -12,6 +13,7 @@ import { LoginForm } from "@/components/auth/login-form";
 import { CodeBlock, Notice } from "@/components/ui/primitives";
 
 export const dynamic = "force-dynamic";
+export const metadata: Metadata = { title: "Sign in" };
 
 const highlights = [
   "Create subdomains for reverse proxies, static files and redirects.",
@@ -33,12 +35,10 @@ export default async function LoginPage() {
         <section className="hidden flex-col justify-between bg-primary p-10 text-white md:flex">
           <div>
             <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-[3px] border-2 border-white/40 text-lg font-black">
-                C
-              </span>
+              <img src="/icon.svg" alt="" className="h-10 w-10" />
               <div>
                 <p className="text-lg font-bold tracking-tight">CaddyWeb</p>
-                <p className="text-xs font-medium text-white/75">Control panel</p>
+                <p className="text-xs font-medium text-white/75">Caddy Admin UI</p>
               </div>
             </div>
 
@@ -68,12 +68,10 @@ export default async function LoginPage() {
 
         <section className="p-6 sm:p-10">
           <div className="mb-8 flex items-center gap-3 md:hidden">
-            <span className="flex h-9 w-9 items-center justify-center rounded-[3px] bg-primary text-base font-black text-white">
-              C
-            </span>
+            <img src="/icon.svg" alt="" className="h-9 w-9" />
             <div>
               <p className="text-base font-bold tracking-tight text-ink">CaddyWeb</p>
-              <p className="text-xs text-muted">Caddy control panel</p>
+              <p className="text-xs text-muted">Caddy Admin UI</p>
             </div>
           </div>
 

@@ -2,6 +2,23 @@
 
 All notable changes to CaddyWeb are documented here.
 
+## 0.4.0 — 2026-11-15
+
+### Added
+
+- A project icon and web app manifest (SVG, 192/512 px and Apple touch icon).
+- Page-specific browser titles, e.g. `Dashboard · CaddyWeb`, `Sites · CaddyWeb`
+  and `TLS & certificates · CaddyWeb`.
+- A third per-site TLS mode: **No certificate (HTTP only)**. The route is served
+  from a dedicated HTTP listener and no certificate is requested.
+- New-site TLS defaults include the no-certificate option.
+
+### Changed
+
+- The sidebar and login screen use the new icon instead of the letter tile.
+- Custom `CADDY_HTTP_PORT` / `CADDY_HTTPS_PORT` values are also applied as
+  Caddy's global `http_port` / `https_port` when servers are created.
+
 ## 0.3.0 — 2026-11-15
 
 ### Added

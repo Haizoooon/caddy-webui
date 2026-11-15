@@ -70,7 +70,21 @@ export function routePaths(route: CaddyRoute): string[] {
   return Array.from(paths);
 }
 
-function tlsModeFor(config: CaddyConfig, hosts: string[]): TlsMode {
+function serverIsHttpOnly(server: CaddyServer): boolean {
+  const httpPort = (process.env.CADDY_HTTP_PORT || "80").replace(/^:/, "");
+  const httpsPort = (process.env.CADDY_HTTPS_PORT || "443").replace(/^:/, "");
+  const listens = server.listen ?? [];
+
+  if (listens.length === 0) return false;
+  return (
+    listens.some((listen) => listen.endsWith(`:${httpPort}`)) &&
+    !listens.some((listen) => listen.endsWith(`:${httpsPort}`))
+  );
+}
+
+function tlsModeFor(config: CaddyConfig, hosts: string[], server: CaddyServer): TlsMode {
+  if (serverIsHttpOnly(server)) return "off";
+
   const policies = config.apps?.tls?.automation?.policies ?? [];
   const hasInternal = policies.some(
     (policy) =>
@@ -177,7 +191,7 @@ export function parseSite(
     kind,
     hosts,
     paths: routePaths(route),
-    tls: tlsModeFor(config, hosts),
+    tls: tlsModeFor(config, hosts, server),
     target,
     upstreams,
     root,

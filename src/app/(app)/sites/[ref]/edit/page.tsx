@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import { ArrowLeft } from "lucide-react";
 import { getConfig } from "@/lib/caddy/admin";
 import { CaddyError } from "@/lib/caddy/errors";
@@ -10,6 +11,7 @@ import { SiteForm } from "@/components/sites/site-form";
 import { buttonClass, Notice } from "@/components/ui/primitives";
 
 export const dynamic = "force-dynamic";
+export const metadata: Metadata = { title: "Edit site" };
 
 export default async function EditSitePage({
   params,

@@ -2,8 +2,11 @@ import { ApiError } from "@/lib/caddy/errors";
 import { buildRoute } from "@/lib/caddy/handlers";
 import {
   applyTlsPolicy,
+  ensureHttpServer,
   ensureNoDuplicateHost,
+  ensureServer,
   findRoute,
+  insertRoute,
 } from "@/lib/caddy/mutate";
 import { parseSite, routeHosts } from "@/lib/caddy/parse";
 import { decodeRef, managedId } from "@/lib/caddy/ref";
@@ -75,7 +78,17 @@ export async function PUT(request: Request, { params }: RouteParams) {
       ensureNoDuplicateHost(config, input.hosts, found.route);
 
       const oldHosts = routeHosts(found.route);
-      found.server.routes![found.index] = built;
+      const target =
+        input.tls === "off"
+          ? ensureHttpServer(config, found.serverName)
+          : ensureServer(config, found.serverName);
+
+      if (target.server === found.server) {
+        found.server.routes![found.index] = built;
+      } else {
+        found.server.routes!.splice(found.index, 1);
+        insertRoute(target.server, built);
+      }
 
       applyTlsPolicy(config, oldHosts, "auto");
       applyTlsPolicy(config, input.hosts, input.tls);

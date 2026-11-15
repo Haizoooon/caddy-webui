@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="CaddyWeb">
+  <rect width="512" height="512" rx="112" fill="#1ABC9C"/>
+  <path
+    d="M 356 156 C 312 120 236 124 192 172 C 144 224 148 300 196 346 C 240 388 314 392 356 352"
+    fill="none"
+    stroke="#FFFFFF"
+    stroke-width="66"
+    stroke-linecap="round"
+  />
+  <circle cx="404" cy="404" r="44" fill="#0E7C67"/>
+  <circle cx="404" cy="404" r="16" fill="#FFFFFF"/>
+</svg>

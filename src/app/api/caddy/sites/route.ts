@@ -3,6 +3,7 @@ import { buildRoute } from "@/lib/caddy/handlers";
 import { describeServers, parseSites } from "@/lib/caddy/parse";
 import {
   applyTlsPolicy,
+  ensureHttpServer,
   ensureNoDuplicateHost,
   ensureServer,
   insertRoute,
@@ -47,11 +48,14 @@ export async function POST(request: Request) {
 
     const { result, warnings } = await mutateConfig((config) => {
       ensureNoDuplicateHost(config, input.hosts);
-      const { name, server } = ensureServer(config, input.serverName);
+      const target =
+        input.tls === "off"
+          ? ensureHttpServer(config, input.serverName)
+          : ensureServer(config, input.serverName);
       const route = buildRoute(input, { id, passwordHash });
-      const index = insertRoute(server, route);
+      const index = insertRoute(target.server, route);
       applyTlsPolicy(config, input.hosts, input.tls);
-      return { ref: encodeRef({ server: name, index, id: route["@id"] }) };
+      return { ref: encodeRef({ server: target.name, index, id: route["@id"] }) };
     });
 
     return ok({ ref: result.ref, warnings });

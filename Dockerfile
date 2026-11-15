@@ -21,13 +21,14 @@ ENV HOSTNAME=0.0.0.0
 
 LABEL org.opencontainers.image.title="CaddyWeb" \
       org.opencontainers.image.description="Flat-design control panel for the Caddy Admin API" \
-      org.opencontainers.image.version="0.3.0" \
+      org.opencontainers.image.version="0.4.0" \
       org.opencontainers.image.licenses="MIT"
 
 RUN addgroup -S nodejs -g 1001 && adduser -S nextjs -u 1001
 
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
 
 USER nextjs
 EXPOSE 18080

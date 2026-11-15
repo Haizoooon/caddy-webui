@@ -229,6 +229,7 @@ export function PreferencesCard({ initial }: { initial: Preferences }) {
               >
                 <option value="auto">Automatic HTTPS</option>
                 <option value="internal">Internal CA</option>
+                <option value="off">No certificate (HTTP only)</option>
               </Select>
             </Field>
           </div>

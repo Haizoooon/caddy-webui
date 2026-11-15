@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { BookOpen, ExternalLink, ShieldCheck, TerminalSquare } from "lucide-react";
 import { publicAdminUrl } from "@/lib/caddy/admin";
 import { appUsername, isAuthEnabled } from "@/lib/session";
@@ -17,6 +18,7 @@ import { PreferencesCard } from "@/components/settings/preferences-card";
 import { SignOutButton } from "@/components/settings/sign-out-button";
 
 export const dynamic = "force-dynamic";
+export const metadata: Metadata = { title: "Settings" };
 
 export default async function SettingsPage() {
   const preferences = await getPreferences();

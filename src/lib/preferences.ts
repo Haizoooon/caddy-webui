@@ -47,7 +47,10 @@ export function parsePreferences(raw: string | null | undefined): Preferences {
       defaultKind: siteKinds.includes(parsed.defaultKind as SiteKind)
         ? (parsed.defaultKind as SiteKind)
         : DEFAULT_PREFERENCES.defaultKind,
-      defaultTls: parsed.defaultTls === "internal" ? "internal" : "auto",
+      defaultTls:
+        parsed.defaultTls === "internal" || parsed.defaultTls === "off"
+          ? parsed.defaultTls
+          : "auto",
       defaultEncode:
         typeof parsed.defaultEncode === "boolean"
           ? parsed.defaultEncode

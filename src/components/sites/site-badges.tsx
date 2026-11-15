@@ -11,6 +11,8 @@ export function KindBadge({ kind }: { kind: SiteKind }) {
 }
 
 export function TlsBadge({ mode }: { mode: TlsMode }) {
+  if (mode === "off") return <Badge tone="warning">No TLS</Badge>;
+
   return mode === "internal" ? (
     <Badge tone="purple">Local CA</Badge>
   ) : (

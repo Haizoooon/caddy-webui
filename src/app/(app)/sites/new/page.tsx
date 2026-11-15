@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { SiteForm } from "@/components/sites/site-form";
 import {
   emptySiteInput,
@@ -5,6 +6,8 @@ import {
   type SiteKind,
 } from "@/lib/caddy/schema";
 import { getPreferences } from "@/lib/preferences-server";
+
+export const metadata: Metadata = { title: "New site" };
 
 export default async function NewSitePage({
   searchParams,
