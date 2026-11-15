@@ -477,12 +477,18 @@ Published image:
 ```bash
 docker pull docker-registry.evoxy.de/caddyweb:0.8.0
 docker run -d --name caddyweb -p 18080:18080 \
+  -v caddyweb_data:/app/data \
   -e APP_USERNAME=admin \
   -e APP_PASSWORD='pick-a-strong-password' \
   -e AUTH_SECRET="$(openssl rand -hex 32)" \
   -e CADDY_ADMIN_URL='http://<caddy-host>:2019' \
   docker-registry.evoxy.de/caddyweb:0.8.0
 ```
+
+Open the panel, sign in with the environment admin and complete `/setup`, or
+pass `DATABASE_URL` / `DB_HOST` and related variables. Keep the
+`caddyweb_data` volume mounted so the database connection file survives
+container recreation.
 
 Caddy's admin endpoint is bound inside the compose network only and is **not**
 published to the host. The image is built for `linux/amd64`.
