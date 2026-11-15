@@ -8,6 +8,7 @@ import {
   SESSION_COOKIE,
   verifySessionToken,
 } from "@/lib/session";
+import { isOAuthConfigured, oidcProviderName } from "@/lib/oauth";
 import { APP_VERSION } from "@/lib/version";
 import { LoginForm } from "@/components/auth/login-form";
 import { CodeBlock, Notice } from "@/components/ui/primitives";
@@ -15,14 +16,33 @@ import { CodeBlock, Notice } from "@/components/ui/primitives";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Sign in" };
 
+const oauthErrorMessages: Record<string, string> = {
+  oauth_config: "Single sign-on is not configured correctly. Check the OIDC settings.",
+  oauth_unavailable: "The identity provider could not be reached. Try again or use your password.",
+  oauth_state: "The sign-in session expired or was invalid. Please try again.",
+  oauth_token: "The identity provider rejected the sign-in. Please try again.",
+  oauth_identity: "The identity provider returned an invalid response.",
+  oauth_forbidden: "This account is not allowed to access CaddyWeb.",
+  oauth_denied: "Sign-in was cancelled.",
+};
+
 const highlights = [
   "Create subdomains for reverse proxies, static files and redirects.",
   "Caddy handles certificates automatically — or use its local CA.",
   "Every request is authenticated before it can change Caddy.",
 ];
 
-export default async function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
   const configured = isAuthEnabled();
+  const params = await searchParams;
+  const oauthError = params.error
+    ? oauthErrorMessages[params.error] ?? "Sign-in failed. Please try again."
+    : "";
+  const oauthEnabled = isOAuthConfigured();
 
   if (configured) {
     const token = (await cookies()).get(SESSION_COOKIE)?.value;
@@ -94,7 +114,12 @@ export default async function LoginPage() {
               <p className="mt-1 mb-7 text-sm text-muted">
                 Enter the credentials configured for this panel. Sessions last seven days.
               </p>
-              <LoginForm defaultUsername={appUsername()} />
+              <LoginForm
+                defaultUsername={appUsername()}
+                initialError={oauthError}
+                oauthEnabled={oauthEnabled}
+                oauthProviderName={oidcProviderName()}
+              />
             </>
           ) : (
             <div className="mt-4 space-y-4">

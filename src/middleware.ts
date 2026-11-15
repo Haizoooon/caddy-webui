@@ -4,7 +4,12 @@ import { isAuthEnabled, SESSION_COOKIE } from "@/lib/session";
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (pathname === "/login" || pathname === "/api/auth/login") {
+  if (
+    pathname === "/login" ||
+    pathname === "/api/auth/login" ||
+    pathname === "/api/auth/oauth/start" ||
+    pathname === "/api/auth/oauth/callback"
+  ) {
     return NextResponse.next();
   }
 

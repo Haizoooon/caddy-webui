@@ -2,6 +2,15 @@ import { SignJWT, jwtVerify } from "jose";
 
 export const SESSION_COOKIE = "caddyweb_session";
 export const SESSION_MAX_AGE = 60 * 60 * 24 * 7;
+export const OAUTH_STATE_COOKIE = "caddyweb_oauth_state";
+export const OAUTH_STATE_MAX_AGE = 60 * 10;
+
+export interface OAuthStatePayload {
+  state: string;
+  verifier: string;
+  nonce: string;
+  redirectUri: string;
+}
 
 /** Authentication is mandatory. Without APP_PASSWORD the panel stays locked. */
 export function isAuthEnabled(): boolean {
@@ -63,5 +72,44 @@ export function sessionCookieOptions(request?: Request) {
     path: "/",
     maxAge: SESSION_MAX_AGE,
     secure: shouldUseSecureCookie(request),
+  };
+}
+
+export async function createOAuthStateToken(payload: OAuthStatePayload): Promise<string> {
+  return new SignJWT({ ...payload })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime(`${OAUTH_STATE_MAX_AGE}s`)
+    .sign(secretKey());
+}
+
+export async function verifyOAuthStateToken(
+  token: string | undefined,
+): Promise<OAuthStatePayload | null> {
+  if (!token) return null;
+
+  try {
+    const { payload } = await jwtVerify(token, secretKey());
+    const { state, verifier, nonce, redirectUri } = payload;
+
+    if (
+      typeof state !== "string" ||
+      typeof verifier !== "string" ||
+      typeof nonce !== "string" ||
+      typeof redirectUri !== "string"
+    ) {
+      return null;
+    }
+
+    return { state, verifier, nonce, redirectUri };
+  } catch {
+    return null;
+  }
+}
+
+export function oauthStateCookieOptions(request?: Request) {
+  return {
+    ...sessionCookieOptions(request),
+    maxAge: OAUTH_STATE_MAX_AGE,
   };
 }

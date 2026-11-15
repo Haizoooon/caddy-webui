@@ -2,16 +2,29 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, ArrowRight, Lock, User } from "lucide-react";
+import { AlertTriangle, ArrowRight, KeyRound, Lock, User } from "lucide-react";
 import { api, ClientApiError } from "@/lib/api-client";
-import { Button } from "@/components/ui/primitives";
+import { Button, buttonClass } from "@/components/ui/primitives";
 import { Field, Input } from "@/components/ui/form";
+import { cn } from "@/lib/utils";
 
-export function LoginForm({ defaultUsername = "" }: { defaultUsername?: string }) {
+interface LoginFormProps {
+  defaultUsername?: string;
+  initialError?: string;
+  oauthEnabled?: boolean;
+  oauthProviderName?: string;
+}
+
+export function LoginForm({
+  defaultUsername = "",
+  initialError = "",
+  oauthEnabled = false,
+  oauthProviderName = "SSO",
+}: LoginFormProps) {
   const router = useRouter();
   const [username, setUsername] = useState(defaultUsername);
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useState(initialError);
   const [busy, setBusy] = useState(false);
 
   const canSubmit = username.trim().length > 0 && password.length > 0;
@@ -39,55 +52,7 @@ export function LoginForm({ defaultUsername = "" }: { defaultUsername?: string }
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
-      <Field label="Username" htmlFor="username">
-        <div className="relative">
-          <User
-            aria-hidden
-            className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted"
-          />
-          <Input
-            id="username"
-            name="username"
-            type="text"
-            autoComplete="username"
-            autoCapitalize="none"
-            spellCheck={false}
-            required
-            autoFocus={!defaultUsername}
-            value={username}
-            onChange={(event) => setUsername(event.target.value)}
-            placeholder="admin"
-            className="pl-9"
-          />
-        </div>
-      </Field>
-
-      <Field
-        label="Password"
-        htmlFor="password"
-        hint="Credentials are configured with APP_USERNAME and APP_PASSWORD."
-      >
-        <div className="relative">
-          <Lock
-            aria-hidden
-            className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted"
-          />
-          <Input
-            id="password"
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            required
-            autoFocus={Boolean(defaultUsername)}
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            placeholder="Enter your password"
-            className="pl-9"
-          />
-        </div>
-      </Field>
-
+    <div className="space-y-5">
       {error ? (
         <div className="flex items-start gap-2 rounded-[3px] border border-danger/30 bg-danger/10 px-3 py-2.5 text-sm text-danger-ink">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
@@ -95,10 +60,80 @@ export function LoginForm({ defaultUsername = "" }: { defaultUsername?: string }
         </div>
       ) : null}
 
-      <Button type="submit" className="w-full" disabled={busy || !canSubmit}>
-        {busy ? "Signing in…" : "Sign in"}
-        {!busy ? <ArrowRight className="h-4 w-4" aria-hidden /> : null}
-      </Button>
-    </form>
+      {oauthEnabled ? (
+        <>
+          <a
+            href="/api/auth/oauth/start"
+            className={cn(buttonClass("outline", "lg"), "w-full")}
+          >
+            <KeyRound className="h-4 w-4" aria-hidden />
+            Continue with {oauthProviderName}
+          </a>
+
+          <div className="flex items-center gap-3" aria-hidden>
+            <span className="h-px flex-1 bg-line" />
+            <span className="text-[10px] font-bold tracking-[0.12em] text-muted uppercase">
+              or password
+            </span>
+            <span className="h-px flex-1 bg-line" />
+          </div>
+        </>
+      ) : null}
+
+      <form onSubmit={onSubmit} className="space-y-4">
+        <Field label="Username" htmlFor="username">
+          <div className="relative">
+            <User
+              aria-hidden
+              className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted"
+            />
+            <Input
+              id="username"
+              name="username"
+              type="text"
+              autoComplete="username"
+              autoCapitalize="none"
+              spellCheck={false}
+              required
+              autoFocus={!defaultUsername}
+              value={username}
+              onChange={(event) => setUsername(event.target.value)}
+              placeholder="admin"
+              className="pl-9"
+            />
+          </div>
+        </Field>
+
+        <Field
+          label="Password"
+          htmlFor="password"
+          hint="Credentials are configured with APP_USERNAME and APP_PASSWORD."
+        >
+          <div className="relative">
+            <Lock
+              aria-hidden
+              className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted"
+            />
+            <Input
+              id="password"
+              name="password"
+              type="password"
+              autoComplete="current-password"
+              required
+              autoFocus={Boolean(defaultUsername)}
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="Enter your password"
+              className="pl-9"
+            />
+          </div>
+        </Field>
+
+        <Button type="submit" className="w-full" disabled={busy || !canSubmit}>
+          {busy ? "Signing in…" : "Sign in"}
+          {!busy ? <ArrowRight className="h-4 w-4" aria-hidden /> : null}
+        </Button>
+      </form>
+    </div>
   );
 }

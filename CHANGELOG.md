@@ -2,6 +2,25 @@
 
 All notable changes to CaddyWeb are documented here.
 
+## 0.5.0 — 2026-11-15
+
+### Added
+
+- Optional OpenID Connect / OAuth2 login, tested against Authentik:
+  - Discovery, authorization-code flow and PKCE (S256).
+  - Signed HttpOnly state cookie with a 10-minute lifetime.
+  - ID-token verification through JWKS, including issuer, audience and nonce.
+  - Optional allowlists by user/email/subject or `groups` claim.
+  - "Continue with …" button on the login page, shown only when configured.
+  - Single sign-on status card on the Settings page.
+- Mock OIDC provider (`npm run mock:oidc`) for local development and testing.
+
+### Changed
+
+- Password login remains active when OAuth is configured, by design.
+- Docker Compose passes the OIDC and `APP_URL` environment variables.
+- Version bumped to 0.5.0.
+
 ## 0.4.0 — 2026-11-15
 
 ### Added

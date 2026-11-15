@@ -1,6 +1,6 @@
 {
   "name": "caddyweb",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": true,
   "description": "A flat-design web UI for the Caddy Admin API",
   "scripts": {
@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "mock:caddy": "node scripts/mock-caddy.mjs"
+    "mock:caddy": "node scripts/mock-caddy.mjs",
+    "mock:oidc": "node scripts/mock-oidc.mjs"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

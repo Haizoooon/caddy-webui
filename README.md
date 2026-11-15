@@ -20,7 +20,7 @@ pages without writing JSON or a Caddyfile.
 
 | Area | What you get |
 | --- | --- |
-| Login | Username + password, signed HttpOnly session, rate limiting, no open mode |
+| Login | Username + password, optional OIDC/OAuth (Authentik), signed HttpOnly sessions, rate limiting |
 | Preferences | Light / dark / system theme, table density, new-site defaults, stored in a cookie |
 | Sites | List, search, create, edit and delete every route Caddy serves |
 | Reverse proxy | One or more `host:port` upstreams, automatic WebSocket support |
@@ -151,6 +151,46 @@ subdomain you create through the panel.
 
 ---
 
+## Single sign-on (OIDC)
+
+CaddyWeb can authenticate through Authentik or any OpenID Connect provider.
+Password login always stays available; OAuth is an additional method and appears
+on the login page only when it is configured.
+
+### Authentik setup
+
+1. In Authentik, create an **OAuth2/OpenID Provider** (confidential client).
+2. Register `https://caddy.example.com/api/auth/oauth/callback` as the redirect URI.
+3. Enable the `openid`, `profile` and `email` scopes. Add a `groups` claim if you
+   want group-based access control.
+4. Bind the provider to an application and restrict its policy to the intended
+   users or groups.
+5. Configure CaddyWeb:
+
+```dotenv
+APP_URL=https://caddy.example.com
+OIDC_ISSUER_URL=https://auth.example.com/application/o/caddyweb/
+OIDC_CLIENT_ID=your-client-id
+OIDC_CLIENT_SECRET=your-client-secret
+OIDC_PROVIDER_NAME=Authentik
+OIDC_SCOPES=openid profile email
+```
+
+6. Restart the container. The login page then shows **Continue with Authentik**
+   above the password form.
+
+Use `OIDC_ALLOWED_USERS` (email, username or subject) and/or
+`OIDC_ALLOWED_GROUPS` to restrict access inside CaddyWeb as well. If both lists
+are empty, any account the IdP authenticates can use the panel — restrict the
+application in Authentik itself.
+
+The callback validates a signed, HttpOnly state cookie, PKCE, the ID-token
+signature through JWKS, the issuer, the audience and the nonce. Tokens are never
+stored. Behind a reverse proxy, set `APP_URL` (or `OIDC_REDIRECT_URI`) to the
+public HTTPS URL so the callback matches the provider configuration.
+
+---
+
 ## Environment variables
 
 | Variable | Default | Purpose |
@@ -165,6 +205,16 @@ subdomain you create through the panel.
 | `APP_PASSWORD` | – | Login password; **required**, the panel stays locked without it |
 | `AUTH_SECRET` | `APP_PASSWORD` | Signing key for the session cookie |
 | `COOKIE_SECURE` | auto | Force the Secure cookie flag; otherwise HTTPS is auto-detected |
+| `APP_URL` | request origin | Public panel URL used to build OAuth callback URLs |
+| `OIDC_ISSUER_URL` | – | OIDC issuer; enables SSO together with a client ID |
+| `OIDC_CLIENT_ID` | – | OAuth client ID |
+| `OIDC_CLIENT_SECRET` | – | OAuth client secret |
+| `OIDC_PROVIDER_NAME` | `SSO` | Login-button label, e.g. `Authentik` |
+| `OIDC_SCOPES` | `openid profile email` | Scopes requested from the provider |
+| `OIDC_ALLOWED_USERS` | – | Comma-separated users, emails or subjects |
+| `OIDC_ALLOWED_GROUPS` | – | Comma-separated groups from the `groups` claim |
+| `OIDC_TOKEN_AUTH_METHOD` | `basic` | Token endpoint auth: `basic` or `post` |
+| `OIDC_REDIRECT_URI` | `${APP_URL}/api/auth/oauth/callback` | Explicit callback URL |
 | `CADDYWEB_PORT` | `18080` | Host port published by Docker Compose (container port is 18080) |
 
 Generate a secret with `openssl rand -hex 32`.
@@ -212,6 +262,23 @@ npm run dev
 The mock keeps its configuration in memory and implements `/config/`, `/load`,
 `/reverse_proxy/upstreams`, `/adapt` and the local PKI endpoints.
 
+For OAuth development, a mock OpenID Connect provider is included:
+
+```bash
+npm run mock:oidc      # listens on 127.0.0.1:4010
+
+OIDC_ISSUER_URL=http://localhost:4010/ \
+OIDC_CLIENT_ID=caddyweb \
+OIDC_CLIENT_SECRET=secret \
+OIDC_PROVIDER_NAME=Authentik \
+OIDC_ALLOWED_GROUPS=caddy-admins \
+APP_URL=http://localhost:3000 \
+npm run dev
+```
+
+It signs ID tokens with a generated RSA key, implements discovery, authorization,
+token and JWKS endpoints, and validates PKCE.
+
 ---
 
 ## Docker
@@ -233,13 +300,13 @@ CADDYWEB_PORT=28080 docker compose up -d
 Published image:
 
 ```bash
-docker pull docker-registry.evoxy.de/caddyweb:0.4.0
+docker pull docker-registry.evoxy.de/caddyweb:0.5.0
 docker run -d --name caddyweb -p 18080:18080 \
   -e APP_USERNAME=admin \
   -e APP_PASSWORD='pick-a-strong-password' \
   -e AUTH_SECRET="$(openssl rand -hex 32)" \
   -e CADDY_ADMIN_URL='http://<caddy-host>:2019' \
-  docker-registry.evoxy.de/caddyweb:0.4.0
+  docker-registry.evoxy.de/caddyweb:0.5.0
 ```
 
 Caddy's admin endpoint is bound inside the compose network only and is **not**
@@ -259,6 +326,11 @@ the server.
 - Use `COOKIE_SECURE=true` when the panel is served over HTTPS (HTTPS is also
   detected automatically from `X-Forwarded-Proto`).
 - Login attempts are rate limited per IP address.
+- Password login stays enabled when OAuth is configured, so an IdP outage cannot
+  lock you out. Restrict access in the IdP app and via the optional OIDC
+  allowlists.
+- OAuth uses PKCE, a signed state cookie, nonce validation and JWKS signature
+  verification. Serve the panel over HTTPS and set `APP_URL` behind a proxy.
 - The panel can rewrite the entire Caddy config, so treat its credentials like
   server root credentials.
 - The internal CA is for LAN clients. Install its root certificate only on
@@ -271,6 +343,10 @@ the server.
 | Symptom | Fix |
 | --- | --- |
 | Login page says **Panel locked** | Set `APP_PASSWORD` (and `APP_USERNAME`) in the container environment, then restart or recreate the container |
+| OAuth button is missing | Set both `OIDC_ISSUER_URL` and `OIDC_CLIENT_ID`, then restart the container |
+| `redirect_uri` mismatch from the IdP | Set `APP_URL` (or `OIDC_REDIRECT_URI`) to the public URL and register the same callback in Authentik |
+| `oauth_forbidden` after SSO | The account does not match `OIDC_ALLOWED_USERS` / `OIDC_ALLOWED_GROUPS`; adjust the allowlist or the IdP policy |
+| `oauth_state` after SSO | The state cookie expired or was blocked. Finish the flow within 10 minutes and allow cookies for the panel |
 | Port 18080 already in use | Publish another host port: `-p 28080:18080`, or set `CADDYWEB_PORT=28080` for Compose |
 | `failed to read dockerfile: open Dockerfile: no such file or directory` | Build from the repository root and make sure `.dockerignore` does not exclude `Dockerfile`. This is fixed in 0.3.0 |
 | Dashboard says **Caddy offline** | Start Caddy, verify `CADDY_ADMIN_URL`, and make sure the admin endpoint is not bound to a different address |
@@ -287,7 +363,8 @@ the server.
 ```
 src/app/(app)/          dashboard, sites, upstreams, TLS, config, settings
 src/app/api/caddy/      server-side proxy to the Caddy Admin API
-src/app/api/auth/       login and logout
+src/app/api/auth/       password login, logout and OAuth start/callback
+src/lib/oauth.ts        OIDC discovery, PKCE, token exchange and verification
 src/components/         flat UI primitives, forms, site builder, views
 src/lib/caddy/          admin client, schema, route builder/parser, mutations
 src/lib/session.ts      signed cookie helpers (shared with middleware)
@@ -295,6 +372,7 @@ src/lib/preferences.ts  theme, density and site-default preferences
 src/components/settings preferences card and account controls
 public/                 app icon, PNG icons and manifest assets
 scripts/mock-caddy.mjs  mock Admin API for local development
+scripts/mock-oidc.mjs   mock OIDC provider for local development
 ```
 
 ---
@@ -308,6 +386,7 @@ scripts/mock-caddy.mjs  mock Admin API for local development
 | `npm start` | Serve the production build |
 | `npm run typecheck` | TypeScript check without emitting |
 | `npm run mock:caddy` | Mock Caddy Admin API on port 2019 |
+| `npm run mock:oidc` | Mock OIDC provider on port 4010 |
 
 ---
 
