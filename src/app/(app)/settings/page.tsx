@@ -188,7 +188,7 @@ CADDY_HTTPS_PORT=8443`}</CodeBlock>
         <dl className="px-4 py-2">
           <KeyValue label="Version">{APP_VERSION}</KeyValue>
           <KeyValue label="Framework">Next.js 15 · React 19 · Tailwind CSS 4</KeyValue>
-          <KeyValue label="Design">Flat UI · light mode</KeyValue>
+          <KeyValue label="Design">Flat UI · light/dark</KeyValue>
         </dl>
         <div className="flex flex-wrap gap-2 border-t border-line px-4 py-3">
           <Link
