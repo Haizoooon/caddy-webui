@@ -22,6 +22,8 @@ pages without writing JSON or a Caddyfile.
 | --- | --- |
 | Login | Username + password, optional OIDC/OAuth (Authentik), signed HttpOnly sessions, rate limiting |
 | Accounts | Database-backed users with Admin, Editor and Viewer roles |
+| Profile | Display name, avatar, email, password and email-notification opt-in |
+| Email alerts | SMTP settings plus background monitoring for Caddy and upstream health |
 | API | Bearer-token `POST /api/v1/subdomains` endpoint for automation |
 | Database | Embedded SQLite for users, tokens and OAuth settings, with backup download |
 | Preferences | Light / dark / system theme, table density, new-site defaults, stored in a cookie |
@@ -114,6 +116,37 @@ username, and their role is taken from the database.
 Keep the Docker data volume mounted (`caddyweb_data:/app/data`); otherwise users,
 tokens and dashboard-managed OAuth settings disappear when the container is
 recreated.
+
+## Profile and avatars
+
+Click your name at the bottom of the sidebar to open **Profile**. Every user can:
+
+- change the display name and contact email
+- upload an avatar (resized to 256×256 and stored in the database)
+- opt in or out of email health alerts
+- set or change a local password
+
+Roles, usernames and account state are managed by Admins under **Users**.
+
+## SMTP and health alerts
+
+Admins configure email in **Settings → SMTP** and **Settings → Health alerts**.
+
+- SMTP host, port, STARTTLS / implicit TLS / plain, username, password,
+  from name/address, reply-to and TLS certificate verification.
+- **Send test** validates the connection and logs the result.
+- The monitor checks Caddy every configured number of minutes and emails on
+  state transitions only:
+  - Caddy Admin API unreachable / reachable again
+  - reverse-proxy upstream reports failures / recovers
+- Recipients are active users whose role is selected and who have an email with
+  notifications enabled in their profile, plus optional extra addresses.
+- **Run check now** triggers a check immediately; **Recent emails** shows the
+  last delivery attempts, including failures.
+
+The monitor starts when the panel receives a request. The Docker healthcheck
+(`/login` every 30 seconds) keeps it running in containers; without a
+healthcheck, the first visit starts it.
 
 ## Subdomain API
 
@@ -279,6 +312,13 @@ public HTTPS URL so the callback matches the provider configuration.
 | `OIDC_ALLOWED_GROUPS` | – | Comma-separated groups from the `groups` claim |
 | `OIDC_TOKEN_AUTH_METHOD` | `basic` | Token endpoint auth: `basic` or `post` |
 | `OIDC_REDIRECT_URI` | `${APP_URL}/api/auth/oauth/callback` | Explicit callback URL |
+| `SMTP_HOST` | – | Fallback SMTP host |
+| `SMTP_PORT` | `587` | Fallback SMTP port |
+| `SMTP_SECURITY` | `starttls` | `starttls`, `tls` or `none` |
+| `SMTP_USER` / `SMTP_PASSWORD` | – | Fallback SMTP credentials |
+| `SMTP_FROM_EMAIL` | – | Fallback sender address |
+| `SMTP_FROM_NAME` | `CaddyWeb` | Fallback sender name |
+| `SMTP_REJECT_UNAUTHORIZED` | `true` | Verify SMTP TLS certificates |
 | `CADDYWEB_PORT` | `18080` | Host port published by Docker Compose (container port is 18080) |
 
 Generate a secret with `openssl rand -hex 32`.
@@ -343,6 +383,13 @@ npm run dev
 It signs ID tokens with a generated RSA key, implements discovery, authorization,
 token and JWKS endpoints, and validates PKCE.
 
+To exercise health alerts, start the Caddy mock with failing upstreams:
+
+```bash
+MOCK_UPSTREAM_FAILS=2 npm run mock:caddy
+# then use Run check now in Settings → Health alerts
+```
+
 ---
 
 ## Docker
@@ -368,13 +415,13 @@ with the Caddy data volume.
 Published image:
 
 ```bash
-docker pull docker-registry.evoxy.de/caddyweb:0.6.0
+docker pull docker-registry.evoxy.de/caddyweb:0.7.0
 docker run -d --name caddyweb -p 18080:18080 \
   -e APP_USERNAME=admin \
   -e APP_PASSWORD='pick-a-strong-password' \
   -e AUTH_SECRET="$(openssl rand -hex 32)" \
   -e CADDY_ADMIN_URL='http://<caddy-host>:2019' \
-  docker-registry.evoxy.de/caddyweb:0.6.0
+  docker-registry.evoxy.de/caddyweb:0.7.0
 ```
 
 Caddy's admin endpoint is bound inside the compose network only and is **not**
@@ -421,6 +468,9 @@ the server.
 | `oauth_forbidden` after SSO | The account does not match `OIDC_ALLOWED_USERS` / `OIDC_ALLOWED_GROUPS`; adjust the allowlist or the IdP policy |
 | `oauth_state` after SSO | The state cookie expired or was blocked. Finish the flow within 10 minutes and allow cookies for the panel |
 | Database unavailable | Make `CADDYWEB_DATA_DIR` writable and mounted; check the path in Settings → Database. Environment password login still works |
+| SMTP test fails | Check host/port/security, credentials and `SMTP_REJECT_UNAUTHORIZED`; view the error in Recent emails |
+| No alert emails | Enable Health alerts, select a role with users that have an email and notifications enabled, or add an extra recipient |
+| Profile avatar is missing in the sidebar | Save the profile and reload; avatars are stored in the database |
 | API token returns 401 | Create a new token under Users & API tokens; check it was not revoked or expired |
 | API token returns 403 | The token's user has the Viewer role; change the role to Editor or Admin |
 | Users page is missing | Only Admins can manage users and tokens |
@@ -442,11 +492,15 @@ src/app/(app)/          dashboard, sites, upstreams, TLS, config, settings
 src/app/api/caddy/      server-side proxy to the Caddy Admin API
 src/app/api/auth/       password login, logout and OAuth start/callback
 src/app/api/v1/         bearer-token subdomain API
-src/app/api/admin/      users, API tokens, OAuth and database endpoints
+src/app/api/admin/      users, API tokens, OAuth, SMTP and database endpoints
+src/app/api/me/         profile and password endpoints
 src/lib/oauth.ts        OIDC discovery, PKCE, token exchange and verification
 src/lib/db.ts           embedded SQLite schema, seeding and backups
-src/lib/users.ts        accounts, roles and API tokens
+src/lib/users.ts        accounts, roles, profiles and API tokens
+src/lib/mailer.ts       SMTP transport and email log
+src/lib/monitor.ts      background Caddy/upstream health monitor
 src/lib/oauth-settings.ts  database-backed OAuth configuration
+src/lib/smtp-settings.ts   database-backed SMTP configuration
 src/components/         flat UI primitives, forms, site builder, views
 src/lib/caddy/          admin client, schema, route builder/parser, mutations
 src/lib/session.ts      signed cookie helpers (shared with middleware)

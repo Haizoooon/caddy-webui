@@ -44,6 +44,7 @@ export interface OidcDiscovery {
 export interface OidcIdentity {
   subject: string;
   username: string;
+  name?: string;
   email?: string;
   groups: string[];
 }
@@ -312,6 +313,7 @@ export async function verifyIdToken(
   }
 
   const email = typeof payload.email === "string" ? payload.email : undefined;
+  const name = typeof payload.name === "string" ? payload.name : undefined;
   const username = firstString(
     payload.preferred_username,
     payload.email,
@@ -322,6 +324,7 @@ export async function verifyIdToken(
   return {
     subject: payload.sub,
     username: (username ?? payload.sub).slice(0, 200),
+    name: name?.slice(0, 200),
     email,
     groups: stringArray(payload.groups),
   };

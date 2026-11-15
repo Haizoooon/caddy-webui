@@ -13,6 +13,10 @@ import type { Role } from "./roles";
 export interface SessionUser {
   userId?: number;
   username: string;
+  name: string | null;
+  email: string | null;
+  avatar: string | null;
+  emailNotifications: boolean;
   role: Role;
   provider: "password" | "oidc" | "env" | "api";
 }
@@ -25,6 +29,10 @@ async function resolveSessionUser(
   if (!payload.userId) {
     return {
       username: payload.username,
+      name: payload.username,
+      email: null,
+      avatar: null,
+      emailNotifications: false,
       role: payload.role,
       provider: payload.provider,
     };
@@ -36,6 +44,10 @@ async function resolveSessionUser(
     return {
       userId: user.id,
       username: user.username,
+      name: user.name,
+      email: user.email,
+      avatar: user.avatar,
+      emailNotifications: user.emailNotifications,
       role: user.role,
       provider: payload.provider,
     };

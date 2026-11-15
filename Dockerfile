@@ -22,7 +22,7 @@ ENV CADDYWEB_DATA_DIR=/app/data
 
 LABEL org.opencontainers.image.title="CaddyWeb" \
       org.opencontainers.image.description="Flat-design control panel for the Caddy Admin API" \
-      org.opencontainers.image.version="0.6.0" \
+      org.opencontainers.image.version="0.7.0" \
       org.opencontainers.image.licenses="MIT"
 
 RUN addgroup -S nodejs -g 1001 \

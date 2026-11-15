@@ -2,6 +2,28 @@
 
 All notable changes to CaddyWeb are documented here.
 
+## 0.7.0 — 2026-11-15
+
+### Added
+
+- User profile page: display name, avatar upload (stored in SQLite), contact
+  email, email-notification opt-in and password changes.
+- SMTP configuration in Settings with encrypted password, TLS modes, reply-to,
+  test email and a delivery log.
+- Background health monitor with email alerts on Caddy unreachable/recovered and
+  upstream unhealthy/recovered transitions.
+- Notification settings: interval, recipient roles, extra addresses and
+  per-event toggles.
+- Manual “Run check now” action and a recent-email log in Settings.
+- Admin display-name/avatar support in the Users list.
+- SMTP environment fallbacks for Docker deployments.
+
+### Changed
+
+- Database schema version 2 adds profile fields and the email log; existing
+  databases are migrated automatically.
+- Image bump to 0.7.0.
+
 ## 0.6.0 — 2026-11-15
 
 ### Added

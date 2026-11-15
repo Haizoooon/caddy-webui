@@ -24,3 +24,19 @@ export function formatRelative(date: Date | number): string {
   if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} h ago`;
   return `${Math.floor(diff / 86_400_000)} d ago`;
 }
+
+/** Deterministic date formatting so SSR and hydration agree. */
+export function formatDateTime(value: string | null | undefined): string {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  const iso = date.toISOString();
+  return `${iso.slice(0, 10)} ${iso.slice(11, 16)} UTC`;
+}
+
+export function formatDate(value: string | null | undefined): string {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toISOString().slice(0, 10);
+}

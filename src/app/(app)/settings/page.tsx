@@ -7,6 +7,13 @@ import { getOAuthSummary } from "@/lib/oauth-settings";
 import { getPreferences } from "@/lib/preferences-server";
 import { requirePageUser } from "@/lib/guards";
 import { isAdmin } from "@/lib/roles";
+import { getSmtpSummary } from "@/lib/smtp-settings";
+import {
+  getNotificationSettings,
+  lastHealthCheck,
+  notificationRecipientEmails,
+} from "@/lib/notifications-settings";
+import { recentEmails } from "@/lib/mailer";
 import { APP_VERSION } from "@/lib/version";
 import {
   Badge,
@@ -18,6 +25,7 @@ import {
   PageHeader,
 } from "@/components/ui/primitives";
 import { DatabaseCard } from "@/components/settings/database-card";
+import { EmailNotificationsCard } from "@/components/settings/email-notifications-card";
 import { OAuthSettingsForm } from "@/components/settings/oauth-settings-form";
 import { PreferencesCard } from "@/components/settings/preferences-card";
 import { SignOutButton } from "@/components/settings/sign-out-button";
@@ -36,6 +44,28 @@ export default async function SettingsPage() {
   const adminUrl = publicAdminUrl();
   const hasAdminAuth = Boolean(process.env.CADDY_ADMIN_USER);
   const oauth = admin ? getOAuthSummary() : null;
+  const smtp = admin ? getSmtpSummary() : null;
+  const notifications = admin ? getNotificationSettings() : null;
+  const notificationRecipients =
+    admin && notifications
+      ? (() => {
+          try {
+            return notificationRecipientEmails(notifications);
+          } catch {
+            return [];
+          }
+        })()
+      : [];
+  const lastCheck = admin ? lastHealthCheck() : null;
+  const recentEmailLog = admin
+    ? (() => {
+        try {
+          return recentEmails(10);
+        } catch {
+          return [];
+        }
+      })()
+    : [];
   const callbackBase = (process.env.APP_URL || "").trim().replace(/\/+$/, "");
   const oauthCallbackUrl = callbackBase
     ? `${callbackBase}/api/auth/oauth/callback`
@@ -126,6 +156,15 @@ export default async function SettingsPage() {
         <>
           {oauth ? (
             <OAuthSettingsForm initial={oauth} callbackUrl={oauthCallbackUrl} />
+          ) : null}
+          {smtp && notifications ? (
+            <EmailNotificationsCard
+              smtp={smtp}
+              notifications={notifications}
+              recipients={notificationRecipients}
+              lastCheck={lastCheck}
+              emails={recentEmailLog}
+            />
           ) : null}
           <DatabaseCard />
         </>

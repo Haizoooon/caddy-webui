@@ -16,10 +16,12 @@ const updateSchema = z.object({
     .max(64)
     .regex(/^[a-zA-Z0-9._-]+$/)
     .optional(),
+  name: z.string().trim().max(120).optional(),
   email: z.string().trim().email().max(254).or(z.literal("")).optional(),
   password: z.string().min(8).max(128).optional(),
   role: z.enum(roles).optional(),
   active: z.boolean().optional(),
+  emailNotifications: z.boolean().optional(),
 });
 
 function errorResponse(error: unknown) {
@@ -54,11 +56,13 @@ export async function PATCH(
   try {
     const user = updateUser(id, {
       username: parsed.data.username,
+      name: parsed.data.name,
       email:
         parsed.data.email === undefined ? undefined : parsed.data.email || null,
       password: parsed.data.password,
       role: parsed.data.role,
       active: parsed.data.active,
+      emailNotifications: parsed.data.emailNotifications,
     });
 
     audit(auth.user.username, "user.update", user.username, user.role);

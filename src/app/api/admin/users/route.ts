@@ -15,6 +15,7 @@ const createSchema = z.object({
     .min(3)
     .max(64)
     .regex(/^[a-zA-Z0-9._-]+$/, "Use letters, numbers, dots, dashes or underscores."),
+  name: z.string().trim().max(120).optional(),
   email: z.string().trim().email().max(254).or(z.literal("")).optional(),
   password: z.string().min(8).max(128),
   role: z.enum(roles),
@@ -60,6 +61,7 @@ export async function POST(request: Request) {
   try {
     const user = createUser({
       username: parsed.data.username,
+      name: parsed.data.name,
       email: parsed.data.email || undefined,
       password: parsed.data.password,
       role: parsed.data.role,

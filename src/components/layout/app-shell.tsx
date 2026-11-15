@@ -25,6 +25,7 @@ import type { SessionUser } from "@/lib/guards";
 import { canEditSites, isAdmin, roleLabels } from "@/lib/roles";
 import { useToast } from "@/components/ui/toast";
 import { Badge, buttonClass, Spinner } from "@/components/ui/primitives";
+import { Avatar } from "@/components/ui/avatar";
 
 const navigation = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -45,6 +46,7 @@ function pageTitle(pathname: string): string {
   if (pathname.startsWith("/tls")) return "TLS";
   if (pathname.startsWith("/config")) return "Raw config";
   if (pathname.startsWith("/users")) return "Users & API tokens";
+  if (pathname.startsWith("/profile")) return "Profile";
   if (pathname.startsWith("/settings")) return "Settings";
   return "CaddyWeb";
 }
@@ -183,13 +185,24 @@ export function AppShell({
           <code className="block truncate font-mono text-[10.5px] text-muted">
             {status?.adminUrl ?? "localhost:2019"}
           </code>
-          <div className="flex items-center justify-between gap-2 border-t border-line pt-3">
-            <div className="min-w-0">
-              <p className="text-[10px] font-bold tracking-[0.1em] text-muted uppercase">
+          <Link
+            href="/profile"
+            className="flex items-center gap-2.5 border-t border-line pt-3 pb-1"
+          >
+            <Avatar
+              avatar={user.avatar}
+              name={user.name}
+              username={user.username}
+              size={32}
+            />
+            <span className="min-w-0 flex-1">
+              <span className="block text-[10px] font-bold tracking-[0.1em] text-muted uppercase">
                 Signed in
-              </p>
-              <p className="truncate text-xs font-semibold text-ink-soft">{user.username}</p>
-            </div>
+              </span>
+              <span className="block truncate text-xs font-semibold text-ink-soft">
+                {user.name || user.username}
+              </span>
+            </span>
             <Badge
               tone={
                 user.role === "admin" ? "purple" : user.role === "editor" ? "info" : "muted"
@@ -197,7 +210,7 @@ export function AppShell({
             >
               {roleLabels[user.role]}
             </Badge>
-          </div>
+          </Link>
           {status && !status.authEnabled ? null : (
             <button
               type="button"

@@ -1,5 +1,6 @@
 import { getConfig, publicAdminUrl } from "@/lib/caddy/admin";
 import { isAuthEnabled } from "@/lib/session";
+import { startMonitor } from "@/lib/monitor";
 import { APP_VERSION } from "@/lib/version";
 import { requireApiAuth } from "@/lib/guards";
 import { ok } from "@/lib/http";
@@ -10,6 +11,7 @@ export const dynamic = "force-dynamic";
 const version = APP_VERSION;
 
 export async function GET() {
+  startMonitor();
   const denied = await requireApiAuth();
   if (denied) return denied;
 

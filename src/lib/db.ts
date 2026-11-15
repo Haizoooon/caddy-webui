@@ -29,15 +29,33 @@ export function databasePath(): string {
   );
 }
 
+function ensureColumn(
+  db: DatabaseSync,
+  table: string,
+  column: string,
+  definition: string,
+): void {
+  const columns = db
+    .prepare(`PRAGMA table_info(${table})`)
+    .all() as unknown as { name: string }[];
+
+  if (!columns.some((entry) => entry.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  }
+}
+
 function migrate(db: DatabaseSync): void {
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT NOT NULL UNIQUE COLLATE NOCASE,
+      name TEXT,
       email TEXT COLLATE NOCASE,
       password_hash TEXT,
       role TEXT NOT NULL DEFAULT 'viewer' CHECK (role IN ('admin', 'editor', 'viewer')),
       active INTEGER NOT NULL DEFAULT 1,
+      avatar TEXT,
+      email_notifications INTEGER NOT NULL DEFAULT 1,
       oidc_subject TEXT,
       oidc_issuer TEXT,
       created_at TEXT NOT NULL,
@@ -75,8 +93,22 @@ function migrate(db: DatabaseSync): void {
       created_at TEXT NOT NULL
     );
 
-    PRAGMA user_version = 1;
+    CREATE TABLE IF NOT EXISTS email_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      recipient TEXT NOT NULL,
+      subject TEXT NOT NULL,
+      status TEXT NOT NULL,
+      error TEXT,
+      created_at TEXT NOT NULL
+    );
   `);
+
+  // Migration from schema v1 (users without profile fields).
+  ensureColumn(db, "users", "name", "TEXT");
+  ensureColumn(db, "users", "avatar", "TEXT");
+  ensureColumn(db, "users", "email_notifications", "INTEGER NOT NULL DEFAULT 1");
+
+  db.exec("PRAGMA user_version = 2");
 }
 
 function seedAdmin(db: DatabaseSync): void {
@@ -97,13 +129,14 @@ function seedAdmin(db: DatabaseSync): void {
 
   if (existing) {
     db.prepare(
-      "UPDATE users SET password_hash = ?, role = 'admin', active = 1, updated_at = ? WHERE id = ?",
-    ).run(hash, now, existing.id);
+      `UPDATE users SET password_hash = ?, role = 'admin', active = 1,
+       name = COALESCE(name, ?), updated_at = ? WHERE id = ?`,
+    ).run(hash, username, now, existing.id);
   } else {
     db.prepare(
-      `INSERT INTO users (username, email, password_hash, role, active, created_at, updated_at)
-       VALUES (?, NULL, ?, 'admin', 1, ?, ?)`,
-    ).run(username, hash, now, now);
+      `INSERT INTO users (username, name, email, password_hash, role, active, created_at, updated_at)
+       VALUES (?, ?, NULL, ?, 'admin', 1, ?, ?)`,
+    ).run(username, username, hash, now, now);
   }
 }
 

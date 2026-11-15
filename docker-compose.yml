@@ -18,7 +18,7 @@ services:
       - caddyweb
 
   caddyweb:
-    image: docker-registry.evoxy.de/caddyweb:0.6.0
+    image: docker-registry.evoxy.de/caddyweb:0.7.0
     restart: unless-stopped
     environment:
       PORT: "18080"
@@ -41,6 +41,15 @@ services:
       OIDC_ALLOWED_GROUPS: ${OIDC_ALLOWED_GROUPS:-}
       OIDC_TOKEN_AUTH_METHOD: ${OIDC_TOKEN_AUTH_METHOD:-basic}
       OIDC_REDIRECT_URI: ${OIDC_REDIRECT_URI:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURITY: ${SMTP_SECURITY:-starttls}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-CaddyWeb}
+      SMTP_REPLY_TO: ${SMTP_REPLY_TO:-}
+      SMTP_REJECT_UNAUTHORIZED: ${SMTP_REJECT_UNAUTHORIZED:-true}
     volumes:
       - caddyweb_data:/app/data
     ports:

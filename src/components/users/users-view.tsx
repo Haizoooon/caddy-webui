@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { api, fetcher } from "@/lib/api-client";
 import { roleLabels, roles, type Role } from "@/lib/roles";
+import { formatDateTime } from "@/lib/utils";
 import {
   Badge,
   Button,
@@ -31,11 +32,15 @@ import {
 import { Field, Input, Select, Toggle } from "@/components/ui/form";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
+import { Avatar } from "@/components/ui/avatar";
 
 interface AdminUser {
   id: number;
   username: string;
+  name: string | null;
   email: string | null;
+  avatar: string | null;
+  emailNotifications: boolean;
   role: Role;
   active: boolean;
   authSource: "password" | "oidc" | "both" | "none";
@@ -255,15 +260,28 @@ export function UsersView({ currentUserId }: { currentUserId?: number }) {
                 {userList.map((user) => (
                   <tr key={user.id} className="hover:bg-cloud/30">
                     <td className="px-4 py-3">
-                      <p className="font-semibold text-ink">
-                        {user.username}
-                        {user.id === currentUserId ? (
-                          <span className="ml-2 text-[10px] font-bold text-muted uppercase">
-                            you
-                          </span>
-                        ) : null}
-                      </p>
-                      <p className="text-xs text-muted">{user.email || "No email"}</p>
+                      <div className="flex items-center gap-2.5">
+                        <Avatar
+                          avatar={user.avatar}
+                          name={user.name}
+                          username={user.username}
+                          size={32}
+                        />
+                        <div className="min-w-0">
+                          <p className="font-semibold text-ink">
+                            {user.name || user.username}
+                            {user.id === currentUserId ? (
+                              <span className="ml-2 text-[10px] font-bold text-muted uppercase">
+                                you
+                              </span>
+                            ) : null}
+                          </p>
+                          <p className="text-xs text-muted">
+                            @{user.username}
+                            {user.email ? ` · ${user.email}` : ""}
+                          </p>
+                        </div>
+                      </div>
                     </td>
                     <td className="px-3 py-3">
                       <Badge tone={roleTone[user.role]}>{roleLabels[user.role]}</Badge>
@@ -281,9 +299,7 @@ export function UsersView({ currentUserId }: { currentUserId?: number }) {
                       </Badge>
                     </td>
                     <td className="px-3 py-3 text-xs text-muted">
-                      {user.lastLoginAt
-                        ? new Date(user.lastLoginAt).toLocaleString()
-                        : "Never"}
+                      {user.lastLoginAt ? formatDateTime(user.lastLoginAt) : "Never"}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
@@ -421,14 +437,10 @@ export function UsersView({ currentUserId }: { currentUserId?: number }) {
                       {token.prefix}…
                     </td>
                     <td className="px-3 py-3 text-xs text-muted">
-                      {token.lastUsedAt
-                        ? new Date(token.lastUsedAt).toLocaleString()
-                        : "Never"}
+                      {token.lastUsedAt ? formatDateTime(token.lastUsedAt) : "Never"}
                     </td>
                     <td className="px-3 py-3 text-xs text-muted">
-                      {token.expiresAt
-                        ? new Date(token.expiresAt).toLocaleDateString()
-                        : "Never"}
+                      {token.expiresAt ? formatDateTime(token.expiresAt) : "Never"}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <button
@@ -502,6 +514,7 @@ function UserEditor({
   const { push } = useToast();
   const isEdit = Boolean(user);
   const [username, setUsername] = useState(user?.username ?? "");
+  const [name, setName] = useState(user?.name ?? "");
   const [email, setEmail] = useState(user?.email ?? "");
   const [role, setRole] = useState<Role>(user?.role ?? "viewer");
   const [active, setActive] = useState(user?.active ?? true);
@@ -519,6 +532,7 @@ function UserEditor({
         method: isEdit ? "PATCH" : "POST",
         body: JSON.stringify({
           username,
+          name,
           email: email || undefined,
           password: password || undefined,
           role,
@@ -598,12 +612,22 @@ function UserEditor({
             </Field>
           </div>
 
-          <Field label="Email" htmlFor="userEmail" optional hint="Used to link OAuth accounts.">
+          <Field label="Email" htmlFor="userEmail" optional hint="Used to link OAuth accounts and send alerts.">
             <Input
               id="userEmail"
               type="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
+              autoComplete="off"
+            />
+          </Field>
+
+          <Field label="Display name" htmlFor="userDisplayName" optional>
+            <Input
+              id="userDisplayName"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="Alice Example"
               autoComplete="off"
             />
           </Field>

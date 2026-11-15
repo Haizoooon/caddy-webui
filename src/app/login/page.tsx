@@ -9,6 +9,7 @@ import {
   verifySessionToken,
 } from "@/lib/session";
 import { isOAuthConfigured, oidcProviderName } from "@/lib/oauth";
+import { startMonitor } from "@/lib/monitor";
 import { APP_VERSION } from "@/lib/version";
 import { LoginForm } from "@/components/auth/login-form";
 import { CodeBlock, Notice } from "@/components/ui/primitives";
@@ -37,6 +38,7 @@ export default async function LoginPage({
 }: {
   searchParams: Promise<{ error?: string }>;
 }) {
+  startMonitor();
   const configured = isAuthEnabled();
   const params = await searchParams;
   const oauthError = params.error

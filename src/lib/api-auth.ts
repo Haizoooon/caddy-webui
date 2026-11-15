@@ -43,6 +43,10 @@ export async function authorizeApiOrToken(
         user: {
           userId: result.user.id,
           username: result.user.username,
+          name: result.user.name,
+          email: result.user.email,
+          avatar: result.user.avatar,
+          emailNotifications: result.user.emailNotifications,
           role: result.user.role,
           provider: "api",
         },

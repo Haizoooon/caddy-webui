@@ -16,9 +16,12 @@ export class UserError extends Error {
 export interface User {
   id: number;
   username: string;
+  name: string | null;
   email: string | null;
   role: Role;
   active: boolean;
+  avatar: string | null;
+  emailNotifications: boolean;
   authSource: "password" | "oidc" | "both" | "none";
   oidcSubject: string | null;
   createdAt: string;
@@ -29,10 +32,13 @@ export interface User {
 interface UserRow {
   id: number;
   username: string;
+  name: string | null;
   email: string | null;
   password_hash: string | null;
   role: Role;
   active: number;
+  avatar: string | null;
+  email_notifications: number;
   oidc_subject: string | null;
   oidc_issuer: string | null;
   created_at: string;
@@ -42,6 +48,7 @@ interface UserRow {
 
 export interface CreateUserInput {
   username: string;
+  name?: string;
   email?: string;
   password: string;
   role: Role;
@@ -50,10 +57,12 @@ export interface CreateUserInput {
 
 export interface UpdateUserInput {
   username?: string;
+  name?: string;
   email?: string | null;
   password?: string;
   role?: Role;
   active?: boolean;
+  emailNotifications?: boolean;
 }
 
 function mapUser(row: UserRow): User {
@@ -63,9 +72,12 @@ function mapUser(row: UserRow): User {
   return {
     id: row.id,
     username: row.username,
+    name: row.name,
     email: row.email,
     role: row.role,
     active: row.active === 1,
+    avatar: row.avatar,
+    emailNotifications: row.email_notifications !== 0,
     authSource:
       hasPassword && hasOidc
         ? "both"
@@ -145,11 +157,12 @@ export function createUser(input: CreateUserInput): User {
   try {
     const result = getDb()
       .prepare(
-        `INSERT INTO users (username, email, password_hash, role, active, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO users (username, name, email, password_hash, role, active, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         input.username,
+        input.name || null,
         input.email || null,
         hash,
         input.role,
@@ -193,15 +206,22 @@ export function updateUser(id: number, input: UpdateUserInput): User {
     getDb()
       .prepare(
         `UPDATE users
-         SET username = ?, email = ?, password_hash = ?, role = ?, active = ?, updated_at = ?
+         SET username = ?, name = ?, email = ?, password_hash = ?, role = ?, active = ?,
+             email_notifications = ?, updated_at = ?
          WHERE id = ?`,
       )
       .run(
         input.username ?? current.username,
+        input.name !== undefined ? input.name || null : current.name,
         input.email !== undefined ? input.email || null : current.email,
         hash,
         nextRole,
         nextActive ? 1 : 0,
+        input.emailNotifications === undefined
+          ? current.email_notifications
+          : input.emailNotifications
+            ? 1
+            : 0,
         new Date().toISOString(),
         id,
       );
@@ -255,19 +275,20 @@ export function ensureEnvAdmin(): User | null {
   if (existing) {
     getDb()
       .prepare(
-        "UPDATE users SET password_hash = ?, role = 'admin', active = 1, updated_at = ? WHERE id = ?",
+        `UPDATE users SET password_hash = ?, role = 'admin', active = 1,
+         name = COALESCE(name, ?), updated_at = ? WHERE id = ?`,
       )
-      .run(hash, now, existing.id);
+      .run(hash, username, now, existing.id);
     const row = rowById(existing.id);
     return row ? mapUser(row) : null;
   }
 
   const result = getDb()
     .prepare(
-      `INSERT INTO users (username, email, password_hash, role, active, created_at, updated_at)
-       VALUES (?, NULL, ?, 'admin', 1, ?, ?)`,
+      `INSERT INTO users (username, name, email, password_hash, role, active, created_at, updated_at)
+       VALUES (?, ?, NULL, ?, 'admin', 1, ?, ?)`,
     )
-    .run(username, hash, now, now);
+    .run(username, username, hash, now, now);
 
   const row = rowById(Number(result.lastInsertRowid));
   return row ? mapUser(row) : null;
@@ -276,6 +297,7 @@ export function ensureEnvAdmin(): User | null {
 export interface OidcIdentityInput {
   subject: string;
   username: string;
+  name?: string;
   email?: string;
   groups: string[];
 }
@@ -311,9 +333,10 @@ export function upsertOidcUser(
     if (row.active !== 1) return null;
 
     db.prepare(
-      `UPDATE users SET oidc_subject = ?, oidc_issuer = ?, last_login_at = ?, updated_at = ?
+      `UPDATE users SET oidc_subject = ?, oidc_issuer = ?, last_login_at = ?, updated_at = ?,
+       name = COALESCE(name, ?)
        WHERE id = ?`,
-    ).run(identity.subject, issuer, now, now, row.id);
+    ).run(identity.subject, issuer, now, now, identity.name || identity.username, row.id);
 
     return getUserById(row.id);
   }
@@ -323,11 +346,12 @@ export function upsertOidcUser(
   const username = uniqueUsername(identity.username);
   const result = db
     .prepare(
-      `INSERT INTO users (username, email, password_hash, role, active, oidc_subject, oidc_issuer, created_at, updated_at, last_login_at)
-       VALUES (?, ?, NULL, ?, 1, ?, ?, ?, ?, ?)`,
+      `INSERT INTO users (username, name, email, password_hash, role, active, oidc_subject, oidc_issuer, created_at, updated_at, last_login_at)
+       VALUES (?, ?, ?, NULL, ?, 1, ?, ?, ?, ?, ?)`,
     )
     .run(
       username,
+      identity.name || identity.username,
       identity.email || null,
       defaultRole,
       identity.subject,
@@ -479,3 +503,78 @@ export function touchToken(id: number): void {
     .prepare("UPDATE api_tokens SET last_used_at = ? WHERE id = ?")
     .run(new Date().toISOString(), id);
 }
+
+export function updateProfile(
+  id: number,
+  input: {
+    name?: string;
+    email?: string | null;
+    avatar?: string | null;
+    emailNotifications?: boolean;
+  },
+): User {
+  const current = rowById(id);
+  if (!current) throw new UserError("User not found.", 404);
+
+  try {
+    getDb()
+      .prepare(
+        `UPDATE users SET name = ?, email = ?, avatar = ?, email_notifications = ?, updated_at = ?
+         WHERE id = ?`,
+      )
+      .run(
+        input.name !== undefined ? input.name || null : current.name,
+        input.email !== undefined ? input.email || null : current.email,
+        input.avatar !== undefined ? input.avatar || null : current.avatar,
+        input.emailNotifications === undefined
+          ? current.email_notifications
+          : input.emailNotifications
+            ? 1
+            : 0,
+        new Date().toISOString(),
+        id,
+      );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (message.includes("UNIQUE")) {
+      throw new UserError("That email address is already used by another account.", 409);
+    }
+    throw new UserError("Could not update the profile.", 500);
+  }
+
+  const updated = rowById(id);
+  if (!updated) throw new UserError("User not found.", 404);
+  return mapUser(updated);
+}
+
+export function setUserPassword(id: number, password: string): void {
+  if (!rowById(id)) throw new UserError("User not found.", 404);
+  getDb()
+    .prepare("UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?")
+    .run(bcrypt.hashSync(password, 10), new Date().toISOString(), id);
+}
+
+export interface NotificationRecipient {
+  username: string;
+  name: string | null;
+  email: string;
+  role: Role;
+}
+
+export function getNotificationRecipients(roles: Role[]): NotificationRecipient[] {
+  if (roles.length === 0) return [];
+  const placeholders = roles.map(() => "?").join(", ");
+
+  const rows = getDb()
+    .prepare(
+      `SELECT username, name, email, role FROM users
+       WHERE active = 1 AND email_notifications = 1
+         AND email IS NOT NULL AND email != ''
+         AND role IN (${placeholders})
+       ORDER BY username COLLATE NOCASE`,
+    )
+    .all(...roles) as unknown as NotificationRecipient[];
+
+  return rows;
+}
+

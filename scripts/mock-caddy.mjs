@@ -17,6 +17,8 @@ const HOST = process.env.HOST || "127.0.0.1";
 let config = {};
 let revision = 0;
 let etag = '"config-0"';
+const upstreamFails = Number(process.env.MOCK_UPSTREAM_FAILS || 0);
+let currentFails = upstreamFails;
 
 const localCa = {
   id: "local",
@@ -59,7 +61,7 @@ function collectUpstreams() {
         if (handler.handler === "reverse_proxy") {
           for (const upstream of handler.upstreams ?? []) {
             if (upstream.dial) {
-              upstreams.push({ address: upstream.dial, num_requests: 0, fails: 0 });
+              upstreams.push({ address: upstream.dial, num_requests: 0, fails: currentFails });
             }
           }
         }
@@ -99,6 +101,12 @@ const server = createServer(async (req, res) => {
 
   if (path === "/reverse_proxy/upstreams" && method === "GET") {
     return send(res, 200, collectUpstreams());
+  }
+
+  // Development helper: change the simulated failure count without restarting.
+  if (path === "/__fails") {
+    currentFails = Number(url.searchParams.get("value") ?? 0);
+    return send(res, 200, { fails: currentFails });
   }
 
   if (path === "/pki/ca/local" && method === "GET") {

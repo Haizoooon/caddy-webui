@@ -22,8 +22,8 @@ You can expect an acknowledgement within a few days.
 
 | Version | Supported |
 | --- | --- |
-| 0.6.x | Yes |
-| < 0.6 | No |
+| 0.7.x | Yes |
+| < 0.7 | No |
 
 ## Deployment guidance
 
@@ -32,3 +32,11 @@ You can expect an acknowledgement within a few days.
 - Keep the Caddy admin endpoint (`2019`) on a private network.
 - Terminate TLS in front of the panel and enable `COOKIE_SECURE` when possible.
 - Treat the panel credentials like server root credentials.
+- SMTP passwords and OAuth client secrets are encrypted with `AUTH_SECRET`.
+  Keep that value stable and private. Restrict access to the SQLite data
+  directory, which also contains password/token hashes, avatars and email
+  history.
+- Grant Admin only to operators who should manage users, OAuth, SMTP and raw
+  configuration; Editors can manage routes and Viewers are read-only.
+- Health alert emails contain upstream addresses and panel URLs. Use a trusted
+  SMTP relay and recipient list.
