@@ -1,9 +1,9 @@
-FROM node:22-alpine AS deps
+FROM node:24-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
 
-FROM node:22-alpine AS builder
+FROM node:24-alpine AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV BUILD_STANDALONE=1
@@ -11,20 +11,24 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
 
-FROM node:22-alpine AS runner
+FROM node:24-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=18080
 ENV HOSTNAME=0.0.0.0
+ENV CADDYWEB_DATA_DIR=/app/data
 
 LABEL org.opencontainers.image.title="CaddyWeb" \
       org.opencontainers.image.description="Flat-design control panel for the Caddy Admin API" \
-      org.opencontainers.image.version="0.5.0" \
+      org.opencontainers.image.version="0.6.0" \
       org.opencontainers.image.licenses="MIT"
 
-RUN addgroup -S nodejs -g 1001 && adduser -S nextjs -u 1001
+RUN addgroup -S nodejs -g 1001 \
+  && adduser -S nextjs -u 1001 \
+  && mkdir -p /app/data \
+  && chown -R nextjs:nodejs /app/data
 
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static

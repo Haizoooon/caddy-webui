@@ -15,20 +15,24 @@ import {
   Plus,
   Settings,
   ShieldCheck,
+  Users,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fetcher } from "@/lib/api-client";
 import type { StatusResponse } from "@/lib/api-types";
+import type { SessionUser } from "@/lib/guards";
+import { canEditSites, isAdmin, roleLabels } from "@/lib/roles";
 import { useToast } from "@/components/ui/toast";
-import { buttonClass, Spinner } from "@/components/ui/primitives";
+import { Badge, buttonClass, Spinner } from "@/components/ui/primitives";
 
 const navigation = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/sites", label: "Sites", icon: Globe },
   { href: "/upstreams", label: "Upstreams", icon: Network },
   { href: "/tls", label: "TLS", icon: ShieldCheck },
-  { href: "/config", label: "Config", icon: Braces },
+  { href: "/config", label: "Config", icon: Braces, adminOnly: true },
+  { href: "/users", label: "Users", icon: Users, adminOnly: true },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -40,6 +44,7 @@ function pageTitle(pathname: string): string {
   if (pathname.startsWith("/upstreams")) return "Upstreams";
   if (pathname.startsWith("/tls")) return "TLS";
   if (pathname.startsWith("/config")) return "Raw config";
+  if (pathname.startsWith("/users")) return "Users & API tokens";
   if (pathname.startsWith("/settings")) return "Settings";
   return "CaddyWeb";
 }
@@ -49,7 +54,13 @@ function isActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function AppShell({ children }: { children: ReactNode }) {
+export function AppShell({
+  children,
+  user,
+}: {
+  children: ReactNode;
+  user: SessionUser;
+}) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
@@ -58,6 +69,10 @@ export function AppShell({ children }: { children: ReactNode }) {
     refreshInterval: 15000,
     revalidateOnFocus: true,
   });
+  const canEdit = canEditSites(user.role);
+  const visibleNavigation = navigation.filter(
+    (item) => !item.adminOnly || isAdmin(user.role),
+  );
 
   useEffect(() => {
     setMenuOpen(false);
@@ -115,7 +130,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <p className="px-2 pb-2 text-[10px] font-bold tracking-[0.14em] text-muted uppercase">
             Manage
           </p>
-          {navigation.map((item) => {
+          {visibleNavigation.map((item) => {
             const active = isActive(pathname, item.href);
             const Icon = item.icon;
             return (
@@ -138,18 +153,20 @@ export function AppShell({ children }: { children: ReactNode }) {
             );
           })}
 
-          <div className="pt-4">
-            <p className="px-2 pb-2 text-[10px] font-bold tracking-[0.14em] text-muted uppercase">
-              Shortcut
-            </p>
-            <Link
-              href="/sites/new"
-              className={cn(buttonClass("outline", "sm"), "w-full justify-start")}
-            >
-              <Plus className="h-3.5 w-3.5" aria-hidden />
-              New subdomain
-            </Link>
-          </div>
+          {canEdit ? (
+            <div className="pt-4">
+              <p className="px-2 pb-2 text-[10px] font-bold tracking-[0.14em] text-muted uppercase">
+                Shortcut
+              </p>
+              <Link
+                href="/sites/new"
+                className={cn(buttonClass("outline", "sm"), "w-full justify-start")}
+              >
+                <Plus className="h-3.5 w-3.5" aria-hidden />
+                New subdomain
+              </Link>
+            </div>
+          ) : null}
         </nav>
 
         <div className="space-y-3 border-t border-line px-4 py-4">
@@ -166,6 +183,21 @@ export function AppShell({ children }: { children: ReactNode }) {
           <code className="block truncate font-mono text-[10.5px] text-muted">
             {status?.adminUrl ?? "localhost:2019"}
           </code>
+          <div className="flex items-center justify-between gap-2 border-t border-line pt-3">
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold tracking-[0.1em] text-muted uppercase">
+                Signed in
+              </p>
+              <p className="truncate text-xs font-semibold text-ink-soft">{user.username}</p>
+            </div>
+            <Badge
+              tone={
+                user.role === "admin" ? "purple" : user.role === "editor" ? "info" : "muted"
+              }
+            >
+              {roleLabels[user.role]}
+            </Badge>
+          </div>
           {status && !status.authEnabled ? null : (
             <button
               type="button"
@@ -224,13 +256,15 @@ export function AppShell({ children }: { children: ReactNode }) {
                 />
                 {isLoading ? "Checking" : status?.connected ? "Online" : "Offline"}
               </span>
-              <Link
-                href="/sites/new"
-                className={cn(buttonClass("primary", "sm"), "hidden sm:inline-flex")}
-              >
-                <Plus className="h-3.5 w-3.5" aria-hidden />
-                New site
-              </Link>
+              {canEdit ? (
+                <Link
+                  href="/sites/new"
+                  className={cn(buttonClass("primary", "sm"), "hidden sm:inline-flex")}
+                >
+                  <Plus className="h-3.5 w-3.5" aria-hidden />
+                  New site
+                </Link>
+              ) : null}
             </div>
           </div>
         </header>

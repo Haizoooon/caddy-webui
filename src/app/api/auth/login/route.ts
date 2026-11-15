@@ -6,6 +6,11 @@ import {
   SESSION_COOKIE,
   sessionCookieOptions,
 } from "@/lib/session";
+import {
+  authenticateUser,
+  ensureEnvAdmin,
+  touchLogin,
+} from "@/lib/users";
 import { clientIp, fail, ok } from "@/lib/http";
 import { rateLimit, resetRateLimit } from "@/lib/rate-limit";
 
@@ -47,22 +52,57 @@ export async function POST(request: Request) {
   const expectedUser = appUsername();
   const expectedPassword = process.env.APP_PASSWORD ?? "";
 
-  const userMatches =
+  const envMatches =
     username.length > 0 &&
-    safeEqual(username.toLowerCase(), expectedUser.toLowerCase());
-  const passwordMatches =
-    password.length > 0 &&
     expectedPassword.length > 0 &&
+    safeEqual(username.toLowerCase(), expectedUser.toLowerCase()) &&
     safeEqual(password, expectedPassword);
 
-  if (!userMatches || !passwordMatches) {
+  let user = null;
+  let provider: "password" | "env" = "password";
+
+  if (envMatches) {
+    provider = "env";
+    try {
+      user = ensureEnvAdmin();
+      if (user) touchLogin(user.id);
+    } catch {
+      // The environment admin remains usable even if the database fails.
+      user = null;
+    }
+  } else {
+    try {
+      user = authenticateUser(username, password);
+      if (user) {
+        touchLogin(user.id);
+        provider = "password";
+      }
+    } catch {
+      user = null;
+    }
+  }
+
+  if (!user && !envMatches) {
     return fail("Incorrect username or password.", 401);
   }
 
   resetRateLimit(`login:${ip}`);
 
-  const token = await createSessionToken(expectedUser);
-  const response = ok({ username: expectedUser });
+  const payload = user
+    ? {
+        username: user.username,
+        role: user.role,
+        userId: user.id,
+        provider,
+      }
+    : {
+        username: expectedUser,
+        role: "admin" as const,
+        provider: "env" as const,
+      };
+
+  const token = await createSessionToken(payload);
+  const response = ok({ username: payload.username, role: payload.role });
   response.cookies.set(SESSION_COOKIE, token, sessionCookieOptions(request));
   return response;
 }

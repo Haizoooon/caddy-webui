@@ -1,5 +1,6 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from "jose";
+import { getOAuthSettings } from "./oauth-settings";
 
 export type OAuthErrorCode =
   | "config"
@@ -47,35 +48,25 @@ export interface OidcIdentity {
   groups: string[];
 }
 
-function list(value: string | undefined): string[] {
-  return (value ?? "")
-    .split(/[\s,]+/)
-    .map((entry) => entry.trim())
-    .filter(Boolean);
-}
-
 export function oidcConfig(): OidcConfig | null {
-  const issuer = process.env.OIDC_ISSUER_URL?.trim();
-  const clientId = process.env.OIDC_CLIENT_ID?.trim();
-  if (!issuer || !clientId) return null;
+  try {
+    const settings = getOAuthSettings();
+    if (!settings.enabled || !settings.issuer || !settings.clientId) return null;
 
-  const clientSecret = process.env.OIDC_CLIENT_SECRET;
-  const redirectUri = process.env.OIDC_REDIRECT_URI?.trim();
-
-  return {
-    issuer,
-    clientId,
-    clientSecret: clientSecret ? clientSecret : undefined,
-    scopes: process.env.OIDC_SCOPES?.trim() || "openid profile email",
-    providerName: process.env.OIDC_PROVIDER_NAME?.trim() || "SSO",
-    allowedUsers: list(process.env.OIDC_ALLOWED_USERS),
-    allowedGroups: list(process.env.OIDC_ALLOWED_GROUPS),
-    redirectUri: redirectUri || undefined,
-    tokenAuthMethod:
-      process.env.OIDC_TOKEN_AUTH_METHOD?.trim().toLowerCase() === "post"
-        ? "post"
-        : "basic",
-  };
+    return {
+      issuer: settings.issuer,
+      clientId: settings.clientId,
+      clientSecret: settings.clientSecret,
+      scopes: settings.scopes,
+      providerName: settings.providerName,
+      allowedUsers: settings.allowedUsers,
+      allowedGroups: settings.allowedGroups,
+      redirectUri: settings.redirectUri,
+      tokenAuthMethod: settings.tokenAuthMethod,
+    };
+  } catch {
+    return null;
+  }
 }
 
 export function isOAuthConfigured(): boolean {
@@ -83,19 +74,35 @@ export function isOAuthConfigured(): boolean {
 }
 
 export function oidcProviderName(): string {
-  return process.env.OIDC_PROVIDER_NAME?.trim() || "SSO";
+  try {
+    return getOAuthSettings().providerName || "SSO";
+  } catch {
+    return "SSO";
+  }
 }
 
 export function oidcIssuer(): string {
-  return process.env.OIDC_ISSUER_URL?.trim() || "";
+  try {
+    return getOAuthSettings().issuer;
+  } catch {
+    return "";
+  }
 }
 
 export function oauthAllowedUsers(): string[] {
-  return list(process.env.OIDC_ALLOWED_USERS);
+  try {
+    return getOAuthSettings().allowedUsers;
+  } catch {
+    return [];
+  }
 }
 
 export function oauthAllowedGroups(): string[] {
-  return list(process.env.OIDC_ALLOWED_GROUPS);
+  try {
+    return getOAuthSettings().allowedGroups;
+  } catch {
+    return [];
+  }
 }
 
 export function oauthBaseUrl(request: Request): string {

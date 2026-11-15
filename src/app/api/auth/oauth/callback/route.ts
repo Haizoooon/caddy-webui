@@ -10,6 +10,8 @@ import {
   statesMatch,
   verifyIdToken,
 } from "@/lib/oauth";
+import { getOAuthSettings } from "@/lib/oauth-settings";
+import { upsertOidcUser } from "@/lib/users";
 import {
   createSessionToken,
   isAuthEnabled,
@@ -87,7 +89,24 @@ export async function GET(request: Request) {
 
     assertOAuthAccess(identity, config);
 
-    const session = await createSessionToken(identity.username);
+    const settings = getOAuthSettings();
+    const user = upsertOidcUser(
+      identity,
+      discovery.issuer,
+      settings.defaultRole,
+      settings.autoProvision,
+    );
+
+    if (!user) {
+      throw new OAuthError("forbidden", "This account is not allowed to use the panel.");
+    }
+
+    const session = await createSessionToken({
+      username: user.username,
+      role: user.role,
+      userId: user.id,
+      provider: "oidc",
+    });
     const response = NextResponse.redirect(new URL("/", oauthBaseUrl(request)));
     response.cookies.set(SESSION_COOKIE, session, sessionCookieOptions(request));
     response.cookies.set(OAUTH_STATE_COOKIE, "", {

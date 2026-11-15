@@ -30,8 +30,10 @@ import { Input } from "@/components/ui/form";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import { KindBadge, SiteHost, TlsBadge } from "@/components/sites/site-badges";
+import { canEditSites, type Role } from "@/lib/roles";
 
-export function SitesView() {
+export function SitesView({ role }: { role: Role }) {
+  const canEdit = canEditSites(role);
   const { data, error, isLoading, isValidating, mutate } = useSWR<SitesResponse>(
     "/api/caddy/sites",
     fetcher,
@@ -111,10 +113,12 @@ export function SitesView() {
               {isValidating ? <Spinner /> : <RefreshCw className="h-4 w-4" aria-hidden />}
               Refresh
             </button>
-            <Link href="/sites/new" className={buttonClass("primary", "md")}>
-              <Plus className="h-4 w-4" aria-hidden />
-              New site
-            </Link>
+            {canEdit ? (
+              <Link href="/sites/new" className={buttonClass("primary", "md")}>
+                <Plus className="h-4 w-4" aria-hidden />
+                New site
+              </Link>
+            ) : null}
           </>
         }
       />
@@ -167,10 +171,12 @@ export function SitesView() {
             title="No sites configured"
             description="Add a subdomain and Caddy will serve it instantly, including automatic HTTPS."
             action={
-              <Link href="/sites/new" className={buttonClass("primary", "md")}>
-                <Plus className="h-4 w-4" aria-hidden />
-                Create your first site
-              </Link>
+              canEdit ? (
+                <Link href="/sites/new" className={buttonClass("primary", "md")}>
+                  <Plus className="h-4 w-4" aria-hidden />
+                  Create your first site
+                </Link>
+              ) : undefined
             }
           />
         ) : filtered.length === 0 ? (
@@ -231,23 +237,27 @@ export function SitesView() {
                         {site.auth ? site.authUser || "Yes" : "—"}
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center justify-end gap-1">
-                          <Link
-                            href={`/sites/${site.ref}/edit`}
-                            className={cn(buttonClass("outline", "sm"), "gap-1.5")}
-                          >
-                            <Pencil className="h-3 w-3" aria-hidden />
-                            Edit
-                          </Link>
-                          <button
-                            type="button"
-                            onClick={() => setPendingDelete(site)}
-                            className="rounded-[3px] border border-transparent p-2 text-muted transition-colors hover:border-danger/30 hover:bg-danger/10 hover:text-danger-ink"
-                            aria-label={`Delete ${hostLabel(site.hosts)}`}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
+                        {canEdit ? (
+                          <div className="flex items-center justify-end gap-1">
+                            <Link
+                              href={`/sites/${site.ref}/edit`}
+                              className={cn(buttonClass("outline", "sm"), "gap-1.5")}
+                            >
+                              <Pencil className="h-3 w-3" aria-hidden />
+                              Edit
+                            </Link>
+                            <button
+                              type="button"
+                              onClick={() => setPendingDelete(site)}
+                              className="rounded-[3px] border border-transparent p-2 text-muted transition-colors hover:border-danger/30 hover:bg-danger/10 hover:text-danger-ink"
+                              aria-label={`Delete ${hostLabel(site.hosts)}`}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="block text-right text-xs text-muted">—</span>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -274,23 +284,25 @@ export function SitesView() {
                     {!site.managed ? <Badge tone="warning">Imported</Badge> : null}
                   </div>
 
-                  <div className="mt-3 flex items-center gap-2">
-                    <Link
-                      href={`/sites/${site.ref}/edit`}
-                      className={cn(buttonClass("outline", "sm"), "gap-1.5")}
-                    >
-                      <Pencil className="h-3 w-3" aria-hidden />
-                      Edit
-                    </Link>
-                    <button
-                      type="button"
-                      onClick={() => setPendingDelete(site)}
-                      className="inline-flex h-8 items-center gap-1.5 rounded-[3px] border border-transparent px-2.5 text-xs font-semibold text-danger-ink transition-colors hover:bg-danger/10"
-                    >
-                      <Trash2 className="h-3 w-3" aria-hidden />
-                      Delete
-                    </button>
-                  </div>
+                  {canEdit ? (
+                    <div className="mt-3 flex items-center gap-2">
+                      <Link
+                        href={`/sites/${site.ref}/edit`}
+                        className={cn(buttonClass("outline", "sm"), "gap-1.5")}
+                      >
+                        <Pencil className="h-3 w-3" aria-hidden />
+                        Edit
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => setPendingDelete(site)}
+                        className="inline-flex h-8 items-center gap-1.5 rounded-[3px] border border-transparent px-2.5 text-xs font-semibold text-danger-ink transition-colors hover:bg-danger/10"
+                      >
+                        <Trash2 className="h-3 w-3" aria-hidden />
+                        Delete
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
               ))}
             </div>

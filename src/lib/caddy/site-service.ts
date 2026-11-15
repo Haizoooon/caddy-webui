@@ -8,8 +8,30 @@ import {
   siteInputSchema,
   type SiteInput,
 } from "./schema";
-import type { CaddyRoute } from "./types";
-import { findAuthHash } from "./handlers";
+import type { CaddyRoute, CaddyWarning } from "./types";
+import { findAuthHash, buildRoute } from "./handlers";
+import { mutateConfig } from "./admin";
+import {
+  applyTlsPolicy,
+  ensureHttpServer,
+  ensureNoDuplicateHost,
+  ensureServer,
+  insertRoute,
+} from "./mutate";
+import { encodeRef } from "./ref";
+import { randomId } from "../utils";
+
+export function normalizeSiteInput(input: SiteInput): SiteInput {
+  input.hosts = input.hosts
+    .map((host) => normalizeHost(host))
+    .filter((host): host is string => Boolean(host));
+  input.upstreams = input.upstreams
+    .map((upstream) => normalizeUpstream(upstream).value)
+    .filter((upstream): upstream is string => Boolean(upstream));
+  input.path = normalizePath(input.path);
+  input.root = input.root.trim();
+  return input;
+}
 
 export async function readSiteInput(request: Request): Promise<SiteInput> {
   let body: unknown;
@@ -26,17 +48,7 @@ export async function readSiteInput(request: Request): Promise<SiteInput> {
     });
   }
 
-  const input = parsed.data;
-  input.hosts = input.hosts
-    .map((host) => normalizeHost(host))
-    .filter((host): host is string => Boolean(host));
-  input.upstreams = input.upstreams
-    .map((upstream) => normalizeUpstream(upstream).value)
-    .filter((upstream): upstream is string => Boolean(upstream));
-  input.path = normalizePath(input.path);
-  input.root = input.root.trim();
-
-  return input;
+  return normalizeSiteInput(parsed.data);
 }
 
 export async function hashSitePassword(input: SiteInput): Promise<string | undefined> {
@@ -70,4 +82,28 @@ export function assertValidRouteInput(input: SiteInput): void {
       issues: { "auth.username": "Choose a username for this site." },
     });
   }
+}
+
+export async function createSite(
+  input: SiteInput,
+): Promise<{ ref: string; warnings: CaddyWarning[] }> {
+  assertValidRouteInput(input);
+  requirePassword(input);
+
+  const passwordHash = await hashSitePassword(input);
+  const id = randomId();
+
+  const { result, warnings } = await mutateConfig((config) => {
+    ensureNoDuplicateHost(config, input.hosts);
+    const target =
+      input.tls === "off"
+        ? ensureHttpServer(config, input.serverName)
+        : ensureServer(config, input.serverName);
+    const route = buildRoute(input, { id, passwordHash });
+    const index = insertRoute(target.server, route);
+    applyTlsPolicy(config, input.hosts, input.tls);
+    return { ref: encodeRef({ server: target.name, index, id: route["@id"] }) };
+  });
+
+  return { ref: result.ref, warnings };
 }

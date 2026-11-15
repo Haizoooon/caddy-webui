@@ -10,7 +10,7 @@ import {
 } from "@/lib/caddy/mutate";
 import { parseSite, routeHosts } from "@/lib/caddy/parse";
 import { decodeRef, managedId } from "@/lib/caddy/ref";
-import { requireApiAuth } from "@/lib/guards";
+import { authorizeApi, requireApiAuth } from "@/lib/guards";
 import { errorResponse, fail, ok } from "@/lib/http";
 import { getConfig, mutateConfig } from "@/lib/caddy/admin";
 import {
@@ -47,8 +47,8 @@ export async function GET(_request: Request, { params }: RouteParams) {
 }
 
 export async function PUT(request: Request, { params }: RouteParams) {
-  const denied = await requireApiAuth();
-  if (denied) return denied;
+  const auth = await authorizeApi(["admin", "editor"]);
+  if ("response" in auth) return auth.response;
 
   const ref = decodeRef((await params).ref);
   if (!ref) return fail("Invalid site reference.", 400);
@@ -101,8 +101,8 @@ export async function PUT(request: Request, { params }: RouteParams) {
 }
 
 export async function DELETE(_request: Request, { params }: RouteParams) {
-  const denied = await requireApiAuth();
-  if (denied) return denied;
+  const auth = await authorizeApi(["admin", "editor"]);
+  if ("response" in auth) return auth.response;
 
   const ref = decodeRef((await params).ref);
   if (!ref) return fail("Invalid site reference.", 400);

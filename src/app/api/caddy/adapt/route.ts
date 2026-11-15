@@ -1,13 +1,13 @@
 import { adaptCaddyfile } from "@/lib/caddy/admin";
-import { requireApiAuth } from "@/lib/guards";
+import { authorizeApi } from "@/lib/guards";
 import { errorResponse, fail, ok } from "@/lib/http";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
-  const denied = await requireApiAuth();
-  if (denied) return denied;
+  const auth = await authorizeApi(["admin", "editor"]);
+  if ("response" in auth) return auth.response;
 
   let body: { caddyfile?: unknown };
   try {

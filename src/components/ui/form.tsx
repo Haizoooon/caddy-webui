@@ -96,12 +96,14 @@ export function Toggle({
   label,
   description,
   disabled,
+  ariaLabel,
 }: {
   checked: boolean;
   onChange: (next: boolean) => void;
   label: ReactNode;
   description?: ReactNode;
   disabled?: boolean;
+  ariaLabel?: string;
 }) {
   return (
     <div className="flex items-start gap-3">
@@ -109,7 +111,7 @@ export function Toggle({
         type="button"
         role="switch"
         aria-checked={checked}
-        aria-label={typeof label === "string" ? label : undefined}
+        aria-label={ariaLabel ?? (typeof label === "string" ? label : undefined)}
         disabled={disabled}
         onClick={() => onChange(!checked)}
         className={cn(

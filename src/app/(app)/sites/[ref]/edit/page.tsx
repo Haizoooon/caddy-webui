@@ -7,6 +7,7 @@ import { CaddyError } from "@/lib/caddy/errors";
 import { findRoute } from "@/lib/caddy/mutate";
 import { parseSite, siteToInput } from "@/lib/caddy/parse";
 import { decodeRef } from "@/lib/caddy/ref";
+import { requirePageRole } from "@/lib/guards";
 import { SiteForm } from "@/components/sites/site-form";
 import { buttonClass, Notice } from "@/components/ui/primitives";
 
@@ -18,6 +19,7 @@ export default async function EditSitePage({
 }: {
   params: Promise<{ ref: string }>;
 }) {
+  await requirePageRole(["admin", "editor"]);
   const encodedRef = (await params).ref;
   const ref = decodeRef(encodedRef);
   if (!ref) notFound();

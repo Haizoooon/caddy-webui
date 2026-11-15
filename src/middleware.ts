@@ -33,6 +33,15 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // API tokens authenticate inside the v1 route handlers, so let Bearer
+  // requests through the edge presence check.
+  if (
+    pathname.startsWith("/api/v1/") &&
+    request.headers.get("authorization")?.toLowerCase().startsWith("bearer ")
+  ) {
+    return NextResponse.next();
+  }
+
   // A lightweight presence check runs on the edge. The cookie signature is
   // verified in the app layout and in every API route (Node runtime), where
   // the environment is guaranteed to be available.

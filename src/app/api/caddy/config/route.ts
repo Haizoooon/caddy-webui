@@ -1,5 +1,5 @@
 import { getConfigWithEtag, loadConfig } from "@/lib/caddy/admin";
-import { requireApiAuth } from "@/lib/guards";
+import { authorizeApi } from "@/lib/guards";
 import { errorResponse, fail, ok } from "@/lib/http";
 import type { CaddyConfig } from "@/lib/caddy/types";
 
@@ -7,8 +7,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const denied = await requireApiAuth();
-  if (denied) return denied;
+  const auth = await authorizeApi(["admin"]);
+  if ("response" in auth) return auth.response;
 
   try {
     const { config, etag } = await getConfigWithEtag();
@@ -19,8 +19,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const denied = await requireApiAuth();
-  if (denied) return denied;
+  const auth = await authorizeApi(["admin"]);
+  if ("response" in auth) return auth.response;
 
   let body: { config?: unknown };
   try {

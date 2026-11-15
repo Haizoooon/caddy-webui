@@ -21,6 +21,7 @@ import type {
   UpstreamsResponse,
 } from "@/lib/api-types";
 import { SITE_KIND_META } from "@/lib/caddy/schema";
+import { canEditSites, type Role } from "@/lib/roles";
 import {
   Badge,
   Card,
@@ -62,7 +63,8 @@ const quickStart = [
   },
 ] as const;
 
-export function DashboardView() {
+export function DashboardView({ role }: { role: Role }) {
+  const canEdit = canEditSites(role);
   const status = useSWR<StatusResponse>("/api/caddy/status", fetcher, {
     refreshInterval: 15000,
   });
@@ -104,13 +106,22 @@ export function DashboardView() {
               {refreshing ? <Spinner /> : <RefreshCw className="h-4 w-4" aria-hidden />}
               Refresh
             </button>
-            <Link href="/sites/new" className={buttonClass("primary", "md")}>
-              <Plus className="h-4 w-4" aria-hidden />
-              New subdomain
-            </Link>
+            {canEdit ? (
+              <Link href="/sites/new" className={buttonClass("primary", "md")}>
+                <Plus className="h-4 w-4" aria-hidden />
+                New subdomain
+              </Link>
+            ) : null}
           </>
         }
       />
+
+      {!canEdit ? (
+        <div className="mb-5 rounded-[3px] border border-line bg-cloud/50 px-4 py-2.5 text-xs text-muted">
+          Signed in with the <strong className="text-ink-soft">Viewer</strong> role. Routes
+          and settings are read-only.
+        </div>
+      ) : null}
 
       {connection && !connection.connected ? (
         <div className="mb-6 rounded-[3px] border border-danger/30 border-l-4 border-l-danger bg-danger/5 px-4 py-3">
@@ -207,10 +218,12 @@ export function DashboardView() {
               title="No sites yet"
               description="Create your first subdomain and Caddy will start serving it right away."
               action={
-                <Link href="/sites/new" className={buttonClass("primary", "md")}>
-                  <Plus className="h-4 w-4" aria-hidden />
-                  Create a site
-                </Link>
+                canEdit ? (
+                  <Link href="/sites/new" className={buttonClass("primary", "md")}>
+                    <Plus className="h-4 w-4" aria-hidden />
+                    Create a site
+                  </Link>
+                ) : undefined
               }
             />
           ) : (
@@ -218,7 +231,7 @@ export function DashboardView() {
               {recent.map((site) => (
                 <Link
                   key={site.ref}
-                  href={`/sites/${site.ref}/edit`}
+                  href={canEdit ? `/sites/${site.ref}/edit` : "/sites"}
                   className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-cloud/50"
                 >
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[3px] bg-cloud text-ink-soft">
@@ -239,27 +252,33 @@ export function DashboardView() {
         <div className="space-y-6">
           <Card>
             <CardHeader title="Quick start" description="The four most common setups." />
-            <div className="grid gap-px bg-line sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-              {quickStart.map((item) => (
-                <Link
-                  key={item.kind}
-                  href={item.href}
-                  className="group flex items-start gap-3 bg-surface p-3.5 transition-colors hover:bg-cloud/50"
-                >
-                  <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-[3px] bg-primary/10 text-primary-ink">
-                    <KindIcon kind={item.kind} />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block text-sm font-bold text-ink group-hover:text-primary-ink">
-                      {item.title}
+            {canEdit ? (
+              <div className="grid gap-px bg-line sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                {quickStart.map((item) => (
+                  <Link
+                    key={item.kind}
+                    href={item.href}
+                    className="group flex items-start gap-3 bg-surface p-3.5 transition-colors hover:bg-cloud/50"
+                  >
+                    <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-[3px] bg-primary/10 text-primary-ink">
+                      <KindIcon kind={item.kind} />
                     </span>
-                    <span className="mt-0.5 block text-xs leading-relaxed text-muted">
-                      {item.copy}
+                    <span className="min-w-0">
+                      <span className="block text-sm font-bold text-ink group-hover:text-primary-ink">
+                        {item.title}
+                      </span>
+                      <span className="mt-0.5 block text-xs leading-relaxed text-muted">
+                        {item.copy}
+                      </span>
                     </span>
-                  </span>
-                </Link>
-              ))}
-            </div>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <p className="p-4 text-sm leading-relaxed text-muted">
+                Creating sites requires the Editor or Admin role.
+              </p>
+            )}
           </Card>
 
           <Card>

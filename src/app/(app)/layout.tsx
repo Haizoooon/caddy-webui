@@ -1,16 +1,16 @@
 import type { ReactNode } from "react";
-import { requirePageAuth } from "@/lib/guards";
+import { requirePageUser } from "@/lib/guards";
 import { AppShell } from "@/components/layout/app-shell";
 import { ToastProvider } from "@/components/ui/toast";
 
 export const dynamic = "force-dynamic";
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
-  await requirePageAuth();
+  const user = await requirePageUser();
 
   return (
     <ToastProvider>
-      <AppShell>{children}</AppShell>
+      <AppShell user={user}>{children}</AppShell>
     </ToastProvider>
   );
 }

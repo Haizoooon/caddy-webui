@@ -3,14 +3,10 @@ import type { Metadata } from "next";
 import { BookOpen, ExternalLink, ShieldCheck, TerminalSquare } from "lucide-react";
 import { publicAdminUrl } from "@/lib/caddy/admin";
 import { appUsername, isAuthEnabled } from "@/lib/session";
-import {
-  isOAuthConfigured,
-  oauthAllowedGroups,
-  oauthAllowedUsers,
-  oidcIssuer,
-  oidcProviderName,
-} from "@/lib/oauth";
+import { getOAuthSummary } from "@/lib/oauth-settings";
 import { getPreferences } from "@/lib/preferences-server";
+import { requirePageUser } from "@/lib/guards";
+import { isAdmin } from "@/lib/roles";
 import { APP_VERSION } from "@/lib/version";
 import {
   Badge,
@@ -21,6 +17,8 @@ import {
   Notice,
   PageHeader,
 } from "@/components/ui/primitives";
+import { DatabaseCard } from "@/components/settings/database-card";
+import { OAuthSettingsForm } from "@/components/settings/oauth-settings-form";
 import { PreferencesCard } from "@/components/settings/preferences-card";
 import { SignOutButton } from "@/components/settings/sign-out-button";
 
@@ -28,6 +26,8 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Settings" };
 
 export default async function SettingsPage() {
+  const user = await requirePageUser();
+  const admin = isAdmin(user.role);
   const preferences = await getPreferences();
   const authEnabled = isAuthEnabled();
   const username = appUsername();
@@ -35,13 +35,11 @@ export default async function SettingsPage() {
   const httpsPort = process.env.CADDY_HTTPS_PORT || "443";
   const adminUrl = publicAdminUrl();
   const hasAdminAuth = Boolean(process.env.CADDY_ADMIN_USER);
-
-  const oauthEnabled = isOAuthConfigured();
-  const oauthName = oidcProviderName();
-  const oauthIssuerValue = oidcIssuer();
-  const oauthClientId = process.env.OIDC_CLIENT_ID || "";
-  const oauthUsers = oauthAllowedUsers();
-  const oauthGroups = oauthAllowedGroups();
+  const oauth = admin ? getOAuthSummary() : null;
+  const callbackBase = (process.env.APP_URL || "").trim().replace(/\/+$/, "");
+  const oauthCallbackUrl = callbackBase
+    ? `${callbackBase}/api/auth/oauth/callback`
+    : "/api/auth/oauth/callback";
 
   return (
     <div>
@@ -124,76 +122,21 @@ export default async function SettingsPage() {
         </Card>
       </div>
 
-      <Card className="mt-6">
-        <CardHeader
-          title="Single sign-on (OIDC)"
-          description="Sign in through Authentik or any OpenID Connect provider. Password login always stays available."
-          action={
-            <Badge tone={oauthEnabled ? "success" : "muted"}>
-              {oauthEnabled ? "Enabled" : "Not configured"}
-            </Badge>
-          }
-        />
-        {oauthEnabled ? (
-          <>
-            <dl className="px-4 py-2">
-              <KeyValue label="Provider">{oauthName}</KeyValue>
-              <KeyValue label="Issuer">
-                <code className="font-mono text-xs break-all">{oauthIssuerValue}</code>
-              </KeyValue>
-              <KeyValue label="Client ID">
-                <code className="font-mono text-xs break-all">{oauthClientId}</code>
-              </KeyValue>
-              <KeyValue label="Allowed users">
-                {oauthUsers.length > 0
-                  ? `${oauthUsers.length} configured`
-                  : "No user allowlist"}
-              </KeyValue>
-              <KeyValue label="Allowed groups">
-                {oauthGroups.length > 0 ? oauthGroups.join(", ") : "—"}
-              </KeyValue>
-              <KeyValue label="Callback path">
-                <code className="font-mono text-xs">/api/auth/oauth/callback</code>
-              </KeyValue>
-            </dl>
-            {oauthUsers.length === 0 && oauthGroups.length === 0 ? (
-              <div className="border-t border-line p-4">
-                <Notice tone="warning" title="Any authenticated IdP user can access">
-                  Add <code className="font-mono">OIDC_ALLOWED_USERS</code> or{" "}
-                  <code className="font-mono">OIDC_ALLOWED_GROUPS</code>, or restrict the
-                  application to a group inside Authentik.
-                </Notice>
-              </div>
-            ) : null}
-            <div className="border-t border-line px-4 py-3">
-              <p className="text-xs leading-relaxed text-muted">
-                OAuth is additive: the password form above remains active even when single
-                sign-on is configured. Restrict access in the identity provider app, or set{" "}
-                <code className="font-mono">OIDC_ALLOWED_USERS</code> /{" "}
-                <code className="font-mono">OIDC_ALLOWED_GROUPS</code>. The client secret is
-                never displayed.
-              </p>
-            </div>
-          </>
-        ) : (
-          <div className="p-4">
-            <Notice tone="info" title="Optional: sign in with Authentik">
-              Set <code className="font-mono">OIDC_ISSUER_URL</code> and{" "}
-              <code className="font-mono">OIDC_CLIENT_ID</code> to enable single sign-on.
-              Password login is used until then and stays available afterwards.
-            </Notice>
-            <CodeBlock className="mt-3">{`OIDC_ISSUER_URL=https://auth.example.com/application/o/caddyweb/
-OIDC_CLIENT_ID=your-client-id
-OIDC_CLIENT_SECRET=your-client-secret
-OIDC_PROVIDER_NAME=Authentik
-APP_URL=https://caddy.example.com`}</CodeBlock>
-            <p className="mt-3 text-xs leading-relaxed text-muted">
-              Register <code className="font-mono">/api/auth/oauth/callback</code> as the redirect
-              URI in Authentik. See the README for the full setup.
-            </p>
-          </div>
-        )}
-      </Card>
+      {admin ? (
+        <>
+          {oauth ? (
+            <OAuthSettingsForm initial={oauth} callbackUrl={oauthCallbackUrl} />
+          ) : null}
+          <DatabaseCard />
+        </>
+      ) : (
+        <div className="mt-6">
+          <Notice tone="info" title="Administrator settings are hidden">
+            User accounts, API tokens, OAuth and database settings are available to Admins.
+            Your preferences above can still be changed.
+          </Notice>
+        </div>
+      )}
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <Card>

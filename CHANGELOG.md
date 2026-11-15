@@ -2,6 +2,31 @@
 
 All notable changes to CaddyWeb are documented here.
 
+## 0.6.0 — 2026-11-15
+
+### Added
+
+- Embedded SQLite database (Node `node:sqlite`) for users, API tokens and
+  dashboard-managed OAuth settings. Docker uses a persistent `caddyweb_data`
+  volume at `/app/data`.
+- User accounts with **Admin**, **Editor** and **Viewer** roles, password login
+  integration, role-aware UI and API enforcement.
+- **Users & API tokens** page for creating accounts and bearer tokens.
+- Subdomain API: `POST /api/v1/subdomains` and `GET /api/v1/subdomains` with
+  bearer-token or session authentication.
+- OAuth configuration in the dashboard (issuer, client, secret, scopes,
+  allowlists, default role, auto-provisioning). The client secret is encrypted
+  with `AUTH_SECRET`; environment variables remain a fallback.
+- Database status, backup download and management card in Settings.
+
+### Changed
+
+- Requires Node.js 24 (Docker image and CI updated).
+- The environment admin is seeded into the database and remains a break-glass
+  login.
+- Sessions resolve the current role from the database on every request, so role
+  changes take effect immediately.
+
 ## 0.5.0 — 2026-11-15
 
 ### Added

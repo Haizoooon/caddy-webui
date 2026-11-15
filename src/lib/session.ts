@@ -1,9 +1,17 @@
 import { SignJWT, jwtVerify } from "jose";
+import { isRole, type Role } from "./roles";
 
 export const SESSION_COOKIE = "caddyweb_session";
 export const SESSION_MAX_AGE = 60 * 60 * 24 * 7;
 export const OAUTH_STATE_COOKIE = "caddyweb_oauth_state";
 export const OAUTH_STATE_MAX_AGE = 60 * 10;
+
+export interface SessionTokenPayload {
+  username: string;
+  role: Role;
+  userId?: number;
+  provider: "password" | "oidc" | "env";
+}
 
 export interface OAuthStatePayload {
   state: string;
@@ -30,8 +38,8 @@ function secretKey(): Uint8Array {
   return new TextEncoder().encode(secret);
 }
 
-export async function createSessionToken(username: string): Promise<string> {
-  return new SignJWT({ role: "admin", username })
+export async function createSessionToken(payload: SessionTokenPayload): Promise<string> {
+  return new SignJWT({ ...payload })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(`${SESSION_MAX_AGE}s`)
@@ -40,14 +48,26 @@ export async function createSessionToken(username: string): Promise<string> {
 
 export async function verifySessionToken(
   token: string | undefined,
-): Promise<{ username: string } | null> {
+): Promise<SessionTokenPayload | null> {
   if (!token) return null;
 
   try {
     const { payload } = await jwtVerify(token, secretKey());
-    return {
-      username: typeof payload.username === "string" ? payload.username : appUsername(),
-    };
+
+    const role = isRole(payload.role) ? payload.role : "admin";
+    const username =
+      typeof payload.username === "string" && payload.username.trim()
+        ? payload.username
+        : appUsername();
+    const provider =
+      payload.provider === "password" ||
+      payload.provider === "oidc" ||
+      payload.provider === "env"
+        ? payload.provider
+        : "env";
+    const userId = typeof payload.userId === "number" ? payload.userId : undefined;
+
+    return { username, role, userId, provider };
   } catch {
     return null;
   }

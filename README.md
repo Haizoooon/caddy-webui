@@ -21,6 +21,9 @@ pages without writing JSON or a Caddyfile.
 | Area | What you get |
 | --- | --- |
 | Login | Username + password, optional OIDC/OAuth (Authentik), signed HttpOnly sessions, rate limiting |
+| Accounts | Database-backed users with Admin, Editor and Viewer roles |
+| API | Bearer-token `POST /api/v1/subdomains` endpoint for automation |
+| Database | Embedded SQLite for users, tokens and OAuth settings, with backup download |
 | Preferences | Light / dark / system theme, table density, new-site defaults, stored in a cookie |
 | Sites | List, search, create, edit and delete every route Caddy serves |
 | Reverse proxy | One or more `host:port` upstreams, automatic WebSocket support |
@@ -43,7 +46,7 @@ no shadows or gradients, with palettes for light and dark mode:
 
 ## Requirements
 
-- Node.js 20 or newer (Node 22/24 recommended)
+- Node.js **24 or newer** (the embedded database uses `node:sqlite`)
 - A running Caddy 2 instance whose admin endpoint the app can reach
 - DNS records for the hostnames you create (a wildcard `*.example.com` is easiest)
 
@@ -85,6 +88,58 @@ unauthenticated mode.
 npm run build
 npm start
 ```
+
+---
+
+## Accounts, roles and the database
+
+Users live in an embedded SQLite database (`CADDYWEB_DATA_DIR`, default
+`./data`; `/app/data` in Docker). On first start CaddyWeb seeds an Admin account
+from `APP_USERNAME` / `APP_PASSWORD`.
+
+| Role | Capabilities |
+| --- | --- |
+| Admin | Everything: sites, raw config, users, API tokens, OAuth and database |
+| Editor | Create, edit and delete sites; adapt Caddyfiles; read dashboard/upstreams/TLS |
+| Viewer | Read-only access to routes, upstreams and TLS |
+
+The environment admin remains a break-glass login. Manage accounts, roles and
+API tokens under **Users** in the sidebar. Settings → Database shows the file,
+size, schema version and a backup download.
+
+OAuth users are provisioned on first login with a configurable default role
+(Viewer or Editor). Existing users are matched by OIDC subject, email or
+username, and their role is taken from the database.
+
+Keep the Docker data volume mounted (`caddyweb_data:/app/data`); otherwise users,
+tokens and dashboard-managed OAuth settings disappear when the container is
+recreated.
+
+## Subdomain API
+
+Create a bearer token under **Users & API tokens**, then:
+
+```bash
+curl -X POST https://caddy.example.com/api/v1/subdomains \
+  -H "Authorization: Bearer cw_..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "subdomain": "app",
+    "type": "reverse_proxy",
+    "target": "http://localhost:3000",
+    "tls": "auto"
+  }'
+```
+
+- `subdomain` is combined with `CADDYWEB_BASE_DOMAIN` (or the `domain` field);
+  use `host` / `hosts` for full hostnames.
+- `type`: `reverse_proxy`, `file_server`, `filemanager`, `redirect`, `respond`
+  or `custom`.
+- Other fields: `target`, `upstreams`, `root`, `redirectTo`, `status`, `body`,
+  `handlers`, `path`, `tls`, `browse`, `spa`, `compress`, `basicAuth`.
+- Tokens inherit their user's role: editor/admin tokens can create routes,
+  viewer tokens receive `403`.
+- `GET /api/v1/subdomains` lists the current routes.
 
 ---
 
@@ -157,6 +212,12 @@ CaddyWeb can authenticate through Authentik or any OpenID Connect provider.
 Password login always stays available; OAuth is an additional method and appears
 on the login page only when it is configured.
 
+Configure it in **Settings → Single sign-on (OIDC)** as an Admin. The client
+secret is encrypted at rest with `AUTH_SECRET`. The environment variables below
+are an initial/fallback configuration and are overridden by the dashboard form.
+New OAuth users are provisioned with the configured default role; manage roles
+under **Users**.
+
 ### Authentik setup
 
 1. In Authentik, create an **OAuth2/OpenID Provider** (confidential client).
@@ -201,6 +262,9 @@ public HTTPS URL so the callback matches the provider configuration.
 | `CADDY_ADMIN_ORIGIN` | `http://127.0.0.1:2019` | `Origin` header sent to the Admin API (for `enforce_origin`) |
 | `CADDY_HTTP_PORT` | `80` | Port used when CaddyWeb creates a Caddy server |
 | `CADDY_HTTPS_PORT` | `443` | TLS port used when CaddyWeb creates a Caddy server |
+| `CADDYWEB_DATA_DIR` | `./data` (`/app/data` in Docker) | Directory for the SQLite database |
+| `CADDYWEB_DB_PATH` | `${DATA_DIR}/caddyweb.db` | Explicit SQLite file path |
+| `CADDYWEB_BASE_DOMAIN` | – | Base domain for `subdomain` in the API |
 | `APP_USERNAME` | `admin` | Login username |
 | `APP_PASSWORD` | – | Login password; **required**, the panel stays locked without it |
 | `AUTH_SECRET` | `APP_PASSWORD` | Signing key for the session cookie |
@@ -297,16 +361,20 @@ The panel listens on **18080** inside the container and Compose publishes it on
 CADDYWEB_PORT=28080 docker compose up -d
 ```
 
+Compose mounts the `caddyweb_data` volume at `/app/data` for the SQLite
+database, users, API tokens and OAuth settings. Back that volume up together
+with the Caddy data volume.
+
 Published image:
 
 ```bash
-docker pull docker-registry.evoxy.de/caddyweb:0.5.0
+docker pull docker-registry.evoxy.de/caddyweb:0.6.0
 docker run -d --name caddyweb -p 18080:18080 \
   -e APP_USERNAME=admin \
   -e APP_PASSWORD='pick-a-strong-password' \
   -e AUTH_SECRET="$(openssl rand -hex 32)" \
   -e CADDY_ADMIN_URL='http://<caddy-host>:2019' \
-  docker-registry.evoxy.de/caddyweb:0.5.0
+  docker-registry.evoxy.de/caddyweb:0.6.0
 ```
 
 Caddy's admin endpoint is bound inside the compose network only and is **not**
@@ -326,11 +394,16 @@ the server.
 - Use `COOKIE_SECURE=true` when the panel is served over HTTPS (HTTPS is also
   detected automatically from `X-Forwarded-Proto`).
 - Login attempts are rate limited per IP address.
+- Passwords are stored as bcrypt hashes. API tokens are stored only as SHA-256
+  hashes; the plaintext token is shown once.
+- The database file contains password hashes, token hashes and OAuth settings.
+  Restrict access to the data directory and include it in backups.
 - Password login stays enabled when OAuth is configured, so an IdP outage cannot
   lock you out. Restrict access in the IdP app and via the optional OIDC
   allowlists.
 - OAuth uses PKCE, a signed state cookie, nonce validation and JWKS signature
-  verification. Serve the panel over HTTPS and set `APP_URL` behind a proxy.
+  verification. The OAuth client secret is encrypted with `AUTH_SECRET`. Serve
+  the panel over HTTPS and set `APP_URL` behind a proxy.
 - The panel can rewrite the entire Caddy config, so treat its credentials like
   server root credentials.
 - The internal CA is for LAN clients. Install its root certificate only on
@@ -343,10 +416,14 @@ the server.
 | Symptom | Fix |
 | --- | --- |
 | Login page says **Panel locked** | Set `APP_PASSWORD` (and `APP_USERNAME`) in the container environment, then restart or recreate the container |
-| OAuth button is missing | Set both `OIDC_ISSUER_URL` and `OIDC_CLIENT_ID`, then restart the container |
+| OAuth button is missing | Set both `OIDC_ISSUER_URL` and `OIDC_CLIENT_ID`, or enable and save the provider in Settings → Single sign-on |
 | `redirect_uri` mismatch from the IdP | Set `APP_URL` (or `OIDC_REDIRECT_URI`) to the public URL and register the same callback in Authentik |
 | `oauth_forbidden` after SSO | The account does not match `OIDC_ALLOWED_USERS` / `OIDC_ALLOWED_GROUPS`; adjust the allowlist or the IdP policy |
 | `oauth_state` after SSO | The state cookie expired or was blocked. Finish the flow within 10 minutes and allow cookies for the panel |
+| Database unavailable | Make `CADDYWEB_DATA_DIR` writable and mounted; check the path in Settings → Database. Environment password login still works |
+| API token returns 401 | Create a new token under Users & API tokens; check it was not revoked or expired |
+| API token returns 403 | The token's user has the Viewer role; change the role to Editor or Admin |
+| Users page is missing | Only Admins can manage users and tokens |
 | Port 18080 already in use | Publish another host port: `-p 28080:18080`, or set `CADDYWEB_PORT=28080` for Compose |
 | `failed to read dockerfile: open Dockerfile: no such file or directory` | Build from the repository root and make sure `.dockerignore` does not exclude `Dockerfile`. This is fixed in 0.3.0 |
 | Dashboard says **Caddy offline** | Start Caddy, verify `CADDY_ADMIN_URL`, and make sure the admin endpoint is not bound to a different address |
@@ -364,7 +441,12 @@ the server.
 src/app/(app)/          dashboard, sites, upstreams, TLS, config, settings
 src/app/api/caddy/      server-side proxy to the Caddy Admin API
 src/app/api/auth/       password login, logout and OAuth start/callback
+src/app/api/v1/         bearer-token subdomain API
+src/app/api/admin/      users, API tokens, OAuth and database endpoints
 src/lib/oauth.ts        OIDC discovery, PKCE, token exchange and verification
+src/lib/db.ts           embedded SQLite schema, seeding and backups
+src/lib/users.ts        accounts, roles and API tokens
+src/lib/oauth-settings.ts  database-backed OAuth configuration
 src/components/         flat UI primitives, forms, site builder, views
 src/lib/caddy/          admin client, schema, route builder/parser, mutations
 src/lib/session.ts      signed cookie helpers (shared with middleware)
