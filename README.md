@@ -9,7 +9,7 @@ pages without writing JSON or a Caddyfile.
 > Repository: [github.com/Haizoooon/caddy-webui](https://github.com/Haizoooon/caddy-webui)
 
 - **Next.js 15** (App Router, TypeScript, React 19)
-- **Tailwind CSS 4** with a custom Flat UI light theme
+- **Tailwind CSS 4** with a custom Flat UI theme (light + dark)
 - **Caddy Admin API** at `localhost:2019` (or `caddy:2019` in Docker)
 - **Username + password login** — mandatory, there is no open mode
 - **No database** — Caddy's running configuration is the source of truth
@@ -21,6 +21,7 @@ pages without writing JSON or a Caddyfile.
 | Area | What you get |
 | --- | --- |
 | Login | Username + password, signed HttpOnly session, rate limiting, no open mode |
+| Preferences | Light / dark / system theme, table density, new-site defaults, stored in a cookie |
 | Sites | List, search, create, edit and delete every route Caddy serves |
 | Reverse proxy | One or more `host:port` upstreams, automatic WebSocket support |
 | Static site | `file_server` with a configurable root, directory listing and SPA fallback |
@@ -34,7 +35,7 @@ pages without writing JSON or a Caddyfile.
 | Raw config | JSON editor plus Caddyfile import through `/adapt` |
 
 The design is intentionally flat: solid colours, hairline borders, 3px radii,
-no shadows or gradients, and a light-only palette:
+no shadows or gradients, with palettes for light and dark mode:
 
 `#1ABC9C` `#3498DB` `#2ECC71` `#F1C40F` `#E74C3C` `#9B59B6` `#2C3E50` `#ECF0F1`
 
@@ -217,13 +218,13 @@ CADDYWEB_PORT=28080 docker compose up -d
 Published image:
 
 ```bash
-docker pull docker-registry.evoxy.de/caddyweb:0.2.1
+docker pull docker-registry.evoxy.de/caddyweb:0.3.0
 docker run -d --name caddyweb -p 18080:18080 \
   -e APP_USERNAME=admin \
   -e APP_PASSWORD='pick-a-strong-password' \
   -e AUTH_SECRET="$(openssl rand -hex 32)" \
   -e CADDY_ADMIN_URL='http://<caddy-host>:2019' \
-  docker-registry.evoxy.de/caddyweb:0.2.1
+  docker-registry.evoxy.de/caddyweb:0.3.0
 ```
 
 Caddy's admin endpoint is bound inside the compose network only and is **not**
@@ -256,6 +257,7 @@ the server.
 | --- | --- |
 | Login page says **Panel locked** | Set `APP_PASSWORD` (and `APP_USERNAME`) in the container environment, then restart or recreate the container |
 | Port 18080 already in use | Publish another host port: `-p 28080:18080`, or set `CADDYWEB_PORT=28080` for Compose |
+| `failed to read dockerfile: open Dockerfile: no such file or directory` | Build from the repository root and make sure `.dockerignore` does not exclude `Dockerfile`. This is fixed in 0.3.0 |
 | Dashboard says **Caddy offline** | Start Caddy, verify `CADDY_ADMIN_URL`, and make sure the admin endpoint is not bound to a different address |
 | `HTTP 403` from the admin API | The endpoint enforces origins. Set `CADDY_ADMIN_ORIGIN` to an allowed origin (default `http://127.0.0.1:2019`), or configure `admin { origins ... }` in Caddy |
 | `permission denied` when binding 443 | Run Caddy with the required capabilities, or set `CADDY_HTTPS_PORT=8443` |
@@ -274,6 +276,8 @@ src/app/api/auth/       login and logout
 src/components/         flat UI primitives, forms, site builder, views
 src/lib/caddy/          admin client, schema, route builder/parser, mutations
 src/lib/session.ts      signed cookie helpers (shared with middleware)
+src/lib/preferences.ts  theme, density and site-default preferences
+src/components/settings preferences card and account controls
 scripts/mock-caddy.mjs  mock Admin API for local development
 ```
 

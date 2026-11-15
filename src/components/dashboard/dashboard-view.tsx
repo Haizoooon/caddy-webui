@@ -115,7 +115,7 @@ export function DashboardView() {
       {connection && !connection.connected ? (
         <div className="mb-6 rounded-[3px] border border-danger/30 border-l-4 border-l-danger bg-danger/5 px-4 py-3">
           <div className="flex items-start gap-2.5">
-            <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-danger-dark" aria-hidden />
+            <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-danger-ink" aria-hidden />
             <div className="text-sm">
               <p className="font-semibold text-ink">Caddy Admin API is unreachable</p>
               <p className="mt-1 leading-relaxed text-muted">
@@ -184,7 +184,7 @@ export function DashboardView() {
             title="Sites"
             description="Routes currently served by Caddy."
             action={
-              <Link href="/sites" className="text-xs font-bold text-info-dark hover:underline">
+              <Link href="/sites" className="text-xs font-bold text-info-ink hover:underline">
                 View all
               </Link>
             }
@@ -197,7 +197,7 @@ export function DashboardView() {
             </div>
           ) : sites.error ? (
             <div className="p-4">
-              <p className="text-sm text-danger-dark">
+              <p className="text-sm text-danger-ink">
                 {sites.error instanceof Error ? sites.error.message : "Could not load sites."}
               </p>
             </div>
@@ -246,11 +246,11 @@ export function DashboardView() {
                   href={item.href}
                   className="group flex items-start gap-3 bg-surface p-3.5 transition-colors hover:bg-cloud/50"
                 >
-                  <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-[3px] bg-primary/10 text-primary-dark">
+                  <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-[3px] bg-primary/10 text-primary-ink">
                     <KindIcon kind={item.kind} />
                   </span>
                   <span className="min-w-0">
-                    <span className="block text-sm font-bold text-ink group-hover:text-primary-dark">
+                    <span className="block text-sm font-bold text-ink group-hover:text-primary-ink">
                       {item.title}
                     </span>
                     <span className="mt-0.5 block text-xs leading-relaxed text-muted">
@@ -266,7 +266,7 @@ export function DashboardView() {
             <CardHeader
               title="TLS"
               description="Caddy issues and renews certificates for you."
-              action={<ShieldCheck className="h-4 w-4 text-success-dark" aria-hidden />}
+              action={<ShieldCheck className="h-4 w-4 text-success-ink" aria-hidden />}
             />
             <div className="space-y-2 p-4 text-sm text-muted">
               <p className="flex items-center justify-between gap-3">
@@ -285,7 +285,7 @@ export function DashboardView() {
               </p>
               <Link
                 href="/tls"
-                className="inline-flex pt-1 text-xs font-bold text-info-dark hover:underline"
+                className="inline-flex pt-1 text-xs font-bold text-info-ink hover:underline"
               >
                 Inspect TLS settings
               </Link>

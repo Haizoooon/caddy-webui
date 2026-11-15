@@ -282,7 +282,7 @@ export function SiteForm({
                       <span className="flex items-center gap-1.5 text-sm font-bold text-ink">
                         {meta.label}
                         {selected ? (
-                          <Check className="h-3.5 w-3.5 text-primary-dark" aria-hidden />
+                          <Check className="h-3.5 w-3.5 text-primary-ink" aria-hidden />
                         ) : null}
                       </span>
                       <span className="mt-0.5 block text-xs leading-relaxed text-muted">

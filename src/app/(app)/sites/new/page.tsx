@@ -4,6 +4,7 @@ import {
   siteKinds,
   type SiteKind,
 } from "@/lib/caddy/schema";
+import { getPreferences } from "@/lib/preferences-server";
 
 export default async function NewSitePage({
   searchParams,
@@ -11,11 +12,13 @@ export default async function NewSitePage({
   searchParams: Promise<{ kind?: string }>;
 }) {
   const params = await searchParams;
-  const kind =
-    siteKinds.find((candidate) => candidate === params.kind) ??
-    ("reverse_proxy" as SiteKind);
+  const preferences = await getPreferences();
+  const requestedKind = siteKinds.find((candidate) => candidate === params.kind);
+  const kind: SiteKind = requestedKind ?? preferences.defaultKind;
 
-  return (
-    <SiteForm mode="create" initialKind={kind} initialInput={emptySiteInput(kind)} />
-  );
+  const initialInput = emptySiteInput(kind);
+  initialInput.tls = preferences.defaultTls;
+  initialInput.encode = preferences.defaultEncode;
+
+  return <SiteForm mode="create" initialKind={kind} initialInput={initialInput} />;
 }

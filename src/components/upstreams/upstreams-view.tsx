@@ -45,7 +45,7 @@ export function UpstreamsView() {
 
       {error ? (
         <div className="mb-6 flex items-start gap-2.5 rounded-[3px] border border-danger/30 border-l-4 border-l-danger bg-danger/5 px-4 py-3">
-          <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-danger-dark" aria-hidden />
+          <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-danger-ink" aria-hidden />
           <div className="text-sm">
             <p className="font-semibold text-ink">Could not reach Caddy</p>
             <p className="mt-1 text-muted">

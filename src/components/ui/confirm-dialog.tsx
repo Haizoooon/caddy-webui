@@ -39,7 +39,7 @@ export function ConfirmDialog({
       <button
         type="button"
         aria-label="Close dialog"
-        className="absolute inset-0 bg-ink/45"
+        className="absolute inset-0 bg-black/50"
         onClick={onCancel}
       />
       <div
@@ -49,7 +49,7 @@ export function ConfirmDialog({
         className="relative w-full max-w-md rounded-[3px] border border-line bg-surface"
       >
         <div className="flex items-start gap-3 px-5 pt-5">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[3px] bg-danger/10 text-danger-dark">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[3px] bg-danger/10 text-danger-ink">
             <AlertTriangle className="h-4.5 w-4.5" aria-hidden />
           </span>
           <div>

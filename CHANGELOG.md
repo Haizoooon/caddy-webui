@@ -2,6 +2,23 @@
 
 All notable changes to CaddyWeb are documented here.
 
+## 0.3.0 — 2026-11-15
+
+### Added
+
+- Preferences on the Settings page:
+  - Light, dark and system theme with a full dark palette.
+  - Comfortable or compact table density.
+  - Default site type, TLS mode and compression for the site builder.
+- Preferences are stored in a cookie and applied server-side, so there is no
+  theme flash on reload.
+- Theme-aware scrollbars, inputs, badges, notices and code blocks.
+
+### Fixed
+
+- Docker builds failed with `failed to read dockerfile: open Dockerfile: no
+  such file or directory` because `.dockerignore` excluded the Dockerfile.
+
 ## 0.2.1 — 2026-11-14
 
 ### Fixed

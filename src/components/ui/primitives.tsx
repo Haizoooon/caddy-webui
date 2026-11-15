@@ -13,12 +13,12 @@ export type Tone =
   | "ink";
 
 export const toneBadge: Record<Tone, string> = {
-  primary: "border-primary/30 bg-primary/10 text-[#12876f]",
-  info: "border-info/30 bg-info/10 text-info-dark",
-  success: "border-success/30 bg-success/10 text-success-dark",
-  warning: "border-warning/40 bg-warning/20 text-[#9a7400]",
-  danger: "border-danger/30 bg-danger/10 text-danger-dark",
-  purple: "border-purple/25 bg-purple/10 text-purple",
+  primary: "border-primary/30 bg-primary/10 text-primary-ink",
+  info: "border-info/30 bg-info/10 text-info-ink",
+  success: "border-success/30 bg-success/10 text-success-ink",
+  warning: "border-warning/40 bg-warning/20 text-warning-ink",
+  danger: "border-danger/30 bg-danger/10 text-danger-ink",
+  purple: "border-purple/25 bg-purple/10 text-purple-ink",
   muted: "border-line-strong bg-cloud text-muted",
   ink: "border-ink/20 bg-ink/10 text-ink",
 };
@@ -27,11 +27,11 @@ export const toneSolid: Record<Tone, string> = {
   primary: "bg-primary text-white",
   info: "bg-info text-white",
   success: "bg-success text-white",
-  warning: "bg-warning text-ink",
+  warning: "bg-warning text-[#2c3e50]",
   danger: "bg-danger text-white",
   purple: "bg-purple text-white",
   muted: "bg-cloud text-ink-soft",
-  ink: "bg-ink text-white",
+  ink: "bg-ink text-canvas",
 };
 
 export const toneNotice: Record<Tone, string> = {
@@ -82,9 +82,9 @@ const buttonVariants: Record<ButtonVariant, string> = {
   danger:
     "border-danger bg-danger text-white hover:border-danger-dark hover:bg-danger-dark",
   outline:
-    "border-line-strong bg-surface text-ink-soft hover:border-primary hover:text-primary-dark",
+    "border-line-strong bg-surface text-ink-soft hover:border-primary hover:text-primary-ink",
   ghost: "border-transparent bg-transparent text-ink-soft hover:bg-cloud",
-  ink: "border-ink bg-ink text-white hover:border-ink-soft hover:bg-ink-soft",
+  ink: "border-ink bg-ink text-canvas hover:border-ink-soft hover:bg-ink-soft",
 };
 
 const buttonSizes: Record<ButtonSize, string> = {

@@ -40,10 +40,10 @@ const toneStyles: Record<ToastTone, string> = {
 };
 
 const toneIcons: Record<ToastTone, ReactNode> = {
-  success: <CheckCircle2 className="h-4 w-4 text-success-dark" aria-hidden />,
-  danger: <AlertTriangle className="h-4 w-4 text-danger-dark" aria-hidden />,
-  info: <Info className="h-4 w-4 text-info-dark" aria-hidden />,
-  warning: <AlertTriangle className="h-4 w-4 text-warning-dark" aria-hidden />,
+  success: <CheckCircle2 className="h-4 w-4 text-success-ink" aria-hidden />,
+  danger: <AlertTriangle className="h-4 w-4 text-danger-ink" aria-hidden />,
+  info: <Info className="h-4 w-4 text-info-ink" aria-hidden />,
+  warning: <AlertTriangle className="h-4 w-4 text-warning-ink" aria-hidden />,
 };
 
 export function ToastProvider({ children }: { children: ReactNode }) {

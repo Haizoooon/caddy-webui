@@ -80,7 +80,7 @@ export function Field({
       </div>
       {children}
       {error ? (
-        <p className="text-xs font-medium text-danger-dark" role="alert">
+        <p className="text-xs font-medium text-danger-ink" role="alert">
           {error}
         </p>
       ) : hint ? (

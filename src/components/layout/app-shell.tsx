@@ -80,7 +80,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <button
           type="button"
           aria-label="Close navigation"
-          className="fixed inset-0 z-40 bg-ink/40 lg:hidden"
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
           onClick={() => setMenuOpen(false)}
         />
       ) : null}
@@ -127,7 +127,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 className={cn(
                   "flex items-center gap-2.5 rounded-[3px] border px-2.5 py-2 text-sm font-semibold transition-colors",
                   active
-                    ? "border-primary/20 bg-primary/10 text-primary-dark"
+                    ? "border-primary/20 bg-primary/10 text-primary-ink"
                     : "border-transparent text-ink-soft hover:bg-cloud",
                 )}
               >
@@ -212,8 +212,8 @@ export function AppShell({ children }: { children: ReactNode }) {
                 className={cn(
                   "inline-flex items-center gap-1.5 rounded-[3px] border px-2.5 py-1.5 text-[11px] font-bold whitespace-nowrap",
                   status?.connected
-                    ? "border-success/30 bg-success/10 text-success-dark"
-                    : "border-danger/30 bg-danger/10 text-danger-dark",
+                    ? "border-success/30 bg-success/10 text-success-ink"
+                    : "border-danger/30 bg-danger/10 text-danger-ink",
                 )}
                 title={status?.error ?? status?.adminUrl}
               >

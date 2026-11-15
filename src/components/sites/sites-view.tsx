@@ -121,7 +121,7 @@ export function SitesView() {
 
       {error ? (
         <div className="mb-6 flex items-start gap-2.5 rounded-[3px] border border-danger/30 border-l-4 border-l-danger bg-danger/5 px-4 py-3">
-          <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-danger-dark" aria-hidden />
+          <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-danger-ink" aria-hidden />
           <div className="text-sm">
             <p className="font-semibold text-ink">Could not load sites</p>
             <p className="mt-1 text-muted">
@@ -242,7 +242,7 @@ export function SitesView() {
                           <button
                             type="button"
                             onClick={() => setPendingDelete(site)}
-                            className="rounded-[3px] border border-transparent p-2 text-muted transition-colors hover:border-danger/30 hover:bg-danger/10 hover:text-danger-dark"
+                            className="rounded-[3px] border border-transparent p-2 text-muted transition-colors hover:border-danger/30 hover:bg-danger/10 hover:text-danger-ink"
                             aria-label={`Delete ${hostLabel(site.hosts)}`}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
@@ -285,7 +285,7 @@ export function SitesView() {
                     <button
                       type="button"
                       onClick={() => setPendingDelete(site)}
-                      className="inline-flex h-8 items-center gap-1.5 rounded-[3px] border border-transparent px-2.5 text-xs font-semibold text-danger-dark transition-colors hover:bg-danger/10"
+                      className="inline-flex h-8 items-center gap-1.5 rounded-[3px] border border-transparent px-2.5 text-xs font-semibold text-danger-ink transition-colors hover:bg-danger/10"
                     >
                       <Trash2 className="h-3 w-3" aria-hidden />
                       Delete

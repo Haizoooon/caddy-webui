@@ -89,7 +89,7 @@ export function LoginForm({ defaultUsername = "" }: { defaultUsername?: string }
       </Field>
 
       {error ? (
-        <div className="flex items-start gap-2 rounded-[3px] border border-danger/30 bg-danger/10 px-3 py-2.5 text-sm text-danger-dark">
+        <div className="flex items-start gap-2 rounded-[3px] border border-danger/30 bg-danger/10 px-3 py-2.5 text-sm text-danger-ink">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
           <span>{error}</span>
         </div>

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { BookOpen, ExternalLink, ShieldCheck, TerminalSquare } from "lucide-react";
 import { publicAdminUrl } from "@/lib/caddy/admin";
 import { appUsername, isAuthEnabled } from "@/lib/session";
+import { getPreferences } from "@/lib/preferences-server";
 import { APP_VERSION } from "@/lib/version";
 import {
   Badge,
@@ -12,11 +13,13 @@ import {
   Notice,
   PageHeader,
 } from "@/components/ui/primitives";
+import { PreferencesCard } from "@/components/settings/preferences-card";
 import { SignOutButton } from "@/components/settings/sign-out-button";
 
 export const dynamic = "force-dynamic";
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
+  const preferences = await getPreferences();
   const authEnabled = isAuthEnabled();
   const username = appUsername();
   const httpPort = process.env.CADDY_HTTP_PORT || "80";
@@ -28,9 +31,13 @@ export default function SettingsPage() {
     <div>
       <PageHeader
         title="Settings"
-        description="Server-side configuration for CaddyWeb. Values are read from the environment and never exposed to the browser."
+        description="Appearance, site defaults and server-side configuration. Preferences are stored in this browser."
         actions={authEnabled ? <SignOutButton /> : undefined}
       />
+
+      <div className="mb-6">
+        <PreferencesCard initial={preferences} />
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
@@ -92,7 +99,7 @@ export default function SettingsPage() {
           ) : (
             <div className="border-t border-line p-4">
               <p className="flex items-start gap-2 text-xs leading-relaxed text-muted">
-                <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success-dark" aria-hidden />
+                <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success-ink" aria-hidden />
                 Sessions are HttpOnly and expire after seven days. Failed logins are rate limited
                 per IP address. Configure credentials through environment variables only.
               </p>
@@ -158,7 +165,7 @@ CADDY_HTTPS_PORT=8443`}</CodeBlock>
             href="https://caddyserver.com/docs/api"
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-[3px] border border-line-strong px-2.5 py-1.5 text-xs font-bold text-ink-soft hover:border-primary hover:text-primary-dark"
+            className="inline-flex items-center gap-1.5 rounded-[3px] border border-line-strong px-2.5 py-1.5 text-xs font-bold text-ink-soft hover:border-primary hover:text-primary-ink"
           >
             <BookOpen className="h-3.5 w-3.5" aria-hidden />
             Admin API docs
@@ -168,7 +175,7 @@ CADDY_HTTPS_PORT=8443`}</CodeBlock>
             href="https://caddyserver.com/docs/caddyfile"
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-[3px] border border-line-strong px-2.5 py-1.5 text-xs font-bold text-ink-soft hover:border-primary hover:text-primary-dark"
+            className="inline-flex items-center gap-1.5 rounded-[3px] border border-line-strong px-2.5 py-1.5 text-xs font-bold text-ink-soft hover:border-primary hover:text-primary-ink"
           >
             <BookOpen className="h-3.5 w-3.5" aria-hidden />
             Caddyfile docs

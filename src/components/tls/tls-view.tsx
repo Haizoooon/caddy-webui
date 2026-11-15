@@ -255,7 +255,7 @@ export function TlsView() {
       ) : null}
 
       <div className="mt-6 flex items-start gap-2 rounded-[3px] border border-warning/40 bg-warning/10 px-4 py-3">
-        <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-warning-dark" aria-hidden />
+        <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-warning-ink" aria-hidden />
         <p className="text-xs leading-relaxed text-ink-soft">
           Removing a TLS policy does not revoke certificates that Caddy already stored. Use the
           Caddy CLI if you need to manage its certificate storage directly.

@@ -86,7 +86,7 @@ export default async function LoginPage() {
                 {configured ? "Sign in to continue" : "Panel locked"}
               </h2>
             </div>
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[3px] bg-ink text-white">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[3px] bg-ink text-canvas">
               <LockKeyhole className="h-4 w-4" aria-hidden />
             </span>
           </div>

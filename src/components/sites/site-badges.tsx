@@ -50,7 +50,7 @@ export function SiteHost({
             href={`https://${host}${path}`}
             target="_blank"
             rel="noreferrer"
-            className="truncate text-sm font-semibold text-ink hover:text-primary-dark hover:underline"
+            className="truncate text-sm font-semibold text-ink hover:text-primary-ink hover:underline"
           >
             {host}
           </a>
@@ -77,7 +77,7 @@ export function EditSiteLink({ siteRef }: { siteRef: string }) {
   return (
     <Link
       href={`/sites/${siteRef}/edit`}
-      className="rounded-[2px] px-1.5 py-0.5 text-xs font-bold text-info-dark hover:bg-info/10"
+      className="rounded-[2px] px-1.5 py-0.5 text-xs font-bold text-info-ink hover:bg-info/10"
     >
       Edit
     </Link>

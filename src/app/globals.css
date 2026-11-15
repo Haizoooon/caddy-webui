@@ -1,25 +1,42 @@
 @import "tailwindcss";
 
-@theme {
-  --color-canvas: #f4f8f9;
-  --color-surface: #ffffff;
-  --color-cloud: #ecf0f1;
-  --color-line: #dfe8ea;
-  --color-line-strong: #c7d3d6;
-  --color-ink: #2c3e50;
-  --color-ink-soft: #34495e;
-  --color-muted: #7f8c8d;
-  --color-primary: #1abc9c;
-  --color-primary-dark: #16a085;
-  --color-info: #3498db;
-  --color-info-dark: #2980b9;
-  --color-success: #2ecc71;
-  --color-success-dark: #27ae60;
-  --color-warning: #f1c40f;
-  --color-warning-dark: #f39c12;
-  --color-danger: #e74c3c;
-  --color-danger-dark: #c0392b;
-  --color-purple: #9b59b6;
+/*
+ * Theme tokens are CSS variables so the light/dark preference can be applied
+ * without rebuilding Tailwind. `@theme inline` makes every utility reference
+ * the runtime variable instead of inlining the color at build time.
+ */
+@theme inline {
+  --color-canvas: var(--cw-canvas);
+  --color-surface: var(--cw-surface);
+  --color-cloud: var(--cw-cloud);
+  --color-line: var(--cw-line);
+  --color-line-strong: var(--cw-line-strong);
+  --color-ink: var(--cw-ink);
+  --color-ink-soft: var(--cw-ink-soft);
+  --color-muted: var(--cw-muted);
+
+  --color-primary: var(--cw-primary);
+  --color-primary-dark: var(--cw-primary-dark);
+  --color-primary-ink: var(--cw-primary-ink);
+
+  --color-info: var(--cw-info);
+  --color-info-dark: var(--cw-info-dark);
+  --color-info-ink: var(--cw-info-ink);
+
+  --color-success: var(--cw-success);
+  --color-success-dark: var(--cw-success-dark);
+  --color-success-ink: var(--cw-success-ink);
+
+  --color-warning: var(--cw-warning);
+  --color-warning-dark: var(--cw-warning-dark);
+  --color-warning-ink: var(--cw-warning-ink);
+
+  --color-danger: var(--cw-danger);
+  --color-danger-dark: var(--cw-danger-dark);
+  --color-danger-ink: var(--cw-danger-ink);
+
+  --color-purple: var(--cw-purple);
+  --color-purple-ink: var(--cw-purple-ink);
 
   --radius-flat: 3px;
 
@@ -32,8 +49,117 @@
 }
 
 @layer base {
-  html {
+  :root {
+    --cw-canvas: #f4f8f9;
+    --cw-surface: #ffffff;
+    --cw-cloud: #ecf0f1;
+    --cw-line: #dfe8ea;
+    --cw-line-strong: #c7d3d6;
+    --cw-ink: #2c3e50;
+    --cw-ink-soft: #34495e;
+    --cw-muted: #7f8c8d;
+
+    --cw-primary: #1abc9c;
+    --cw-primary-dark: #16a085;
+    --cw-primary-ink: #12876f;
+
+    --cw-info: #3498db;
+    --cw-info-dark: #2980b9;
+    --cw-info-ink: #2980b9;
+
+    --cw-success: #2ecc71;
+    --cw-success-dark: #27ae60;
+    --cw-success-ink: #27ae60;
+
+    --cw-warning: #f1c40f;
+    --cw-warning-dark: #f39c12;
+    --cw-warning-ink: #9a7400;
+
+    --cw-danger: #e74c3c;
+    --cw-danger-dark: #c0392b;
+    --cw-danger-ink: #c0392b;
+
+    --cw-purple: #9b59b6;
+    --cw-purple-ink: #8e44ad;
+
     color-scheme: light;
+  }
+
+  :root.dark {
+    --cw-canvas: #0d151c;
+    --cw-surface: #141e27;
+    --cw-cloud: #1c2833;
+    --cw-line: #263440;
+    --cw-line-strong: #3a4c5c;
+    --cw-ink: #e8eef2;
+    --cw-ink-soft: #cbd7df;
+    --cw-muted: #91a3ae;
+
+    --cw-primary: #1abc9c;
+    --cw-primary-dark: #16a085;
+    --cw-primary-ink: #5fe3c9;
+
+    --cw-info: #3498db;
+    --cw-info-dark: #2980b9;
+    --cw-info-ink: #7cc4f5;
+
+    --cw-success: #2ecc71;
+    --cw-success-dark: #27ae60;
+    --cw-success-ink: #7ee8a9;
+
+    --cw-warning: #f1c40f;
+    --cw-warning-dark: #f39c12;
+    --cw-warning-ink: #ffd75e;
+
+    --cw-danger: #e74c3c;
+    --cw-danger-dark: #c0392b;
+    --cw-danger-ink: #ff8b80;
+
+    --cw-purple: #9b59b6;
+    --cw-purple-ink: #d2a3e6;
+
+    color-scheme: dark;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root[data-theme="system"] {
+      --cw-canvas: #0d151c;
+      --cw-surface: #141e27;
+      --cw-cloud: #1c2833;
+      --cw-line: #263440;
+      --cw-line-strong: #3a4c5c;
+      --cw-ink: #e8eef2;
+      --cw-ink-soft: #cbd7df;
+      --cw-muted: #91a3ae;
+
+      --cw-primary: #1abc9c;
+      --cw-primary-dark: #16a085;
+      --cw-primary-ink: #5fe3c9;
+
+      --cw-info: #3498db;
+      --cw-info-dark: #2980b9;
+      --cw-info-ink: #7cc4f5;
+
+      --cw-success: #2ecc71;
+      --cw-success-dark: #27ae60;
+      --cw-success-ink: #7ee8a9;
+
+      --cw-warning: #f1c40f;
+      --cw-warning-dark: #f39c12;
+      --cw-warning-ink: #ffd75e;
+
+      --cw-danger: #e74c3c;
+      --cw-danger-dark: #c0392b;
+      --cw-danger-ink: #ff8b80;
+
+      --cw-purple: #9b59b6;
+      --cw-purple-ink: #d2a3e6;
+
+      color-scheme: dark;
+    }
+  }
+
+  html {
     scrollbar-gutter: stable;
   }
 
@@ -50,11 +176,11 @@
   }
 
   ::selection {
-    background: rgba(26, 188, 156, 0.24);
+    background: color-mix(in srgb, var(--cw-primary) 28%, transparent);
   }
 
   :focus-visible {
-    outline: 2px solid var(--color-primary);
+    outline: 2px solid var(--cw-primary);
     outline-offset: 2px;
   }
 
@@ -75,14 +201,21 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    background: #cfdadc;
-    border: 2px solid var(--color-canvas);
+    background: var(--cw-line-strong);
+    border: 2px solid var(--cw-canvas);
     border-radius: 999px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: var(--color-line-strong);
+    background: var(--cw-muted);
   }
+}
+
+/* Unlayered so it beats Tailwind's padding utilities for table cells. */
+:root[data-density="compact"] table th,
+:root[data-density="compact"] table td {
+  padding-top: 0.4rem;
+  padding-bottom: 0.4rem;
 }
 
 @utility flat-ring {
